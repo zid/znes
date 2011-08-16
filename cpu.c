@@ -43,7 +43,15 @@ void cpu_cycle(void)
 
 	switch(opcode)
 	{
-		case 0x09:  /* ORA */
+		case 0x05:  /* ORA mem8 */
+			t = get_byte();
+			c.a |= get_byte_at(t);
+			c.n = !!(c.a & 0x80);
+			c.z = !c.a;
+			c.pc += 2;
+			c.cycles += 2;
+		break;
+		case 0x09:  /* ORA imm8 */
 			t = get_byte();
 			c.a |= t;
 			c.n = !!(c.a & 0x80);
@@ -187,6 +195,12 @@ void cpu_cycle(void)
 				c.pc += 2;
 			}
 		break;
+		case 0x95:  /* STA imm8, X */
+			t = get_byte();
+			writeb((t+c.x)&0xFF, c.a);
+			c.cycles += 4;
+			c.pc += 2;
+		break;
 		case 0x98:  /* TYA */
 			c.y = c.a;
 			c.n = !!(c.y & 0x80);
@@ -283,6 +297,14 @@ void cpu_cycle(void)
 			c.a = get_byte_at(t);
 			c.pc += 2;
 			c.cycles += 5; /* TODO: Page crossing cycle */
+		break;
+		case 0xB5:  /* LDA mem8, x */
+			t = get_byte();
+			c.a = get_byte_at((t + c.x)&0xFF);
+			c.z = !c.a;
+			c.n = !!(c.a & 0x80);
+			c.cycles += 4;
+			c.pc += 2;
 		break;
 		case 0xBD:  /* LDA mem16, x */
 			t = get_short() + c.x;
