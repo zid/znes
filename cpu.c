@@ -37,7 +37,7 @@ void cpu_nmi(unsigned int addr)
 void cpu_cycle(void)
 {
 	unsigned int opcode = get_byte_at(c.pc);
-	unsigned int t;
+	unsigned int t, t2;
 	signed char s;
 	printf("PC: %04X, SP: %04X\n", c.pc, c.sp);
 
@@ -100,6 +100,15 @@ void cpu_cycle(void)
 			c.sp -= 2;
 			c.cycles += 6;
 		break;
+		case 0x26:  /* ROL mem8 */
+			t = get_byte();
+			t = get_byte_at(t);
+			t2 = t;
+			t = (t<<7) | c.c;
+			c.c = !!(t2 & 0x80);
+			c.pc += 2;
+			c.cycles += 5;
+		break;
 		case 0x29:  /* AND imm8 */
 			t = get_byte();
 			c.a &= t;
@@ -150,6 +159,19 @@ void cpu_cycle(void)
 		break;
 		case 0x69:  /* ADC imm8 */
 			s = get_byte();
+			c.a += s + c.c;
+			/* TODO: Fix overflow flag */
+//			c.v = a > 128 ? 1 : 0;
+			c.c = !!(c.a & 0x100);
+			c.a &= 0xFF;
+			c.n = !(c.a & 0x80);
+			c.z = !(c.a);
+			c.pc += 2;
+			c.cycles += 2;
+		break;
+		case 0x75:  /* ADC mem8, x */
+			t = get_byte();
+			s = get_byte_at((t + c.x) & 0xFF);
 			c.a += s + c.c;
 			/* TODO: Fix overflow flag */
 //			c.v = a > 128 ? 1 : 0;
@@ -248,6 +270,13 @@ void cpu_cycle(void)
 			c.n = !!(c.x & 0x80);
 			c.pc += 2;
 			c.cycles += 3;
+		break;
+		case 0xA8:  /* TAY */
+			c.y = c.a;
+			c.n = !!(c.y & 0x80);
+			c.z = !(c.y);
+			c.pc++;
+			c.cycles += 2;
 		break;
 		case 0xA9:  /* LDA imm8 */
 			c.a = get_byte();
