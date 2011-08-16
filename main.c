@@ -1,62 +1,16 @@
 #include <windows.h>
 #include <stdio.h>
+#include "rom.h"
 #include "mem.h"
+#include "cpu.h"
+#include "ppu.h"
 
 #define fatal(x) {printf("Fatal error: %s", x); exit(0);}
-
-struct ROM {
-	int PRGsize;
-	int CHRsize;
-	unsigned char *chrbytes;
-	unsigned char *prgbytes;
-	unsigned char *rombytes;
-	int flags;
-	int flags2;
-	int mapper;
-};
-
-static void read_header(unsigned char *b, struct ROM *r)
-{
-	if(memcmp(b, "NES\x1A", 4) != 0)
-	    fatal("NES header not found.\n");
-
-	r->PRGsize = b[4] * 16384;
-	r->CHRsize = b[5] * 8192;
-
-	r->prgbytes = &b[16];
-	r->chrbytes = &b[16 + r->PRGsize];
-	r->flags = b[6];
-
-	printf("PRG: 0x%X, CHR: 0x%X\n", r->PRGsize, r->CHRsize);
-	printf("Flags:\n");
-
-	if(r->flags & 0x8){
-		printf("\tFour-screen mirroring\n");
-	} else {
-		if(r->flags & 0x1)
-			printf("\tVertical mirroring\n");
-		else
-			printf("\tHorizontal mirroring\n");
-	}
-
-	if(r->flags & 0x2)
-		printf("\tSRAM is battery backed\n");
-
-	if(r->flags & 0x4)
-		printf("\tTrainer present\n");
-
-	r->flags2 = b[7];
-	/* Meh, my test rom doesn't use this */
-
-	r->mapper = (r->flags2 & 0xF) | ((r->flags & 0xF0) >> 4);
-	printf("Mapper: %02X\n", r->mapper);
-}
 
 int main(void)
 {
 	HANDLE f, map;
 	unsigned char *rombytes;
-	struct ROM rom;
 
 	f = CreateFile("ff1.nes", GENERIC_READ, FILE_SHARE_READ, NULL,
 		OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
@@ -71,8 +25,8 @@ int main(void)
 	if(!rombytes)
 	    fatal("Couldn't map view of file.\n");
 
-	read_header(rombytes, &rom);
-	init_mem(rom.prgbytes);
+	init_rom(rombytes);
+	init_mem();
 	init_cpu();
 	init_ppu();
 

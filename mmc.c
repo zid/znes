@@ -8,6 +8,10 @@ static unsigned int reg3_value;
 static unsigned int reg4_value; /* shift register */
 static int count;
 
+/* MCC1 register 0 */
+static int bankselect;
+static int banksize;
+
 void mmc_shift_reset(void)
 {
 	reg4_value = 0;
@@ -28,8 +32,11 @@ static int sendbit(unsigned int b, unsigned int *v)
 
 void mmc_reg0_sendbit(unsigned int b)
 {
-	if(sendbit(b, &reg0_value))
-		printf("Written %02X to mmc register 0\n", reg4_value);
+	if(!sendbit(b, &reg0_value))
+		return;
+
+	bankselect = (reg0_value & 0x4) ? 0x8000 : 0xC000;
+	banksize   = (reg0_value & 0x8) ? 16384 : 32768;
 }
 
 void mmc_reg1_sendbit(unsigned int b)
@@ -46,6 +53,8 @@ void mmc_reg2_sendbit(unsigned int b)
 
 void mmc_reg3_sendbit(unsigned int b)
 {
-	if(sendbit(b, &reg3_value))
-		printf("Written %02X to mmc register 3\n", reg4_value);
+	if(!sendbit(b, &reg3_value))
+		return;
+
+	rom_load_bank(bankselect, reg3_value & 0x1F, banksize);
 }
