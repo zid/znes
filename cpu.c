@@ -100,6 +100,14 @@ void cpu_cycle(void)
 			c.sp -= 2;
 			c.cycles += 6;
 		break;
+		case 0x25:  /* AND mem8 */
+			t = get_byte();
+			c.a &= get_byte_at(t);
+			c.z = !c.a;
+			c.n = !!(c.a & 0x80);
+			c.pc += 2;
+			c.cycles += 3;
+		break;
 		case 0x26:  /* ROL mem8 */
 			t = get_byte();
 			t = get_byte_at(t);
@@ -124,10 +132,29 @@ void cpu_cycle(void)
 			c.cycles += 4;
 			c.pc += 3;
 		break;
+		case 0x30:  /* BMI rel8 */
+			if(c.n) {
+				s = get_byte();
+				c.pc += s + 2;
+				printf("Branched to %04X\n", c.pc);
+				c.cycles += 3;
+			} else {
+				c.cycles += 2;
+				c.pc += 2;
+			}
+		break;
 		case 0x38:  /* SEC */
 			c.c = 1;
 			c.pc++;
 			c.cycles += 2;
+		break;
+		case 0x45:  /* EOR mem8 */
+			t = get_byte();
+			c.a ^= get_byte_at(t);
+			c.z = !c.a;
+			c.n = !!(c.a & 0x80);
+			c.pc += 2;
+			c.cycles += 3;
 		break;
 		case 0x4A:  /* LSR A */
 			c.c = c.a & 1;
@@ -193,6 +220,19 @@ void cpu_cycle(void)
 			writeb(t, c.a);
 			c.pc += 2;
 			c.cycles += 3;
+		break;
+		case 0x86:  /* STX mem8 */
+			t = get_byte();
+			writeb(t, c.x);
+			c.pc += 2;
+			c.cycles += 3;
+		break;
+		case 0x8A:  /* TXA */
+			c.a = c.x;
+			c.z = !c.a;
+			c.n = !!(c.a & 0x80);
+			c.pc += 1;
+			c.cycles += 2;
 		break;
 		case 0x8D:  /* STA m16 */
 			t = get_short();
@@ -385,6 +425,15 @@ void cpu_cycle(void)
 				c.cycles += 2;
 				c.pc += 2;
 			}
+		break;
+		case 0xD6:  /* DEC mem8, x */
+			t = get_byte();
+			t2 = (get_byte_at(t) - 1) & 0xFF;
+			writeb(t, t2);
+			c.z = !t2;
+			c.n = !!(t2 & 0x80);
+			c.pc += 2;
+			c.cycles += 6;
 		break;
 		case 0xD8:
 			printf("Clear decimal mode.\n");
