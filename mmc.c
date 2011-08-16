@@ -1,20 +1,51 @@
 #include <stdio.h>
 #include "mmc.h"
 
-static int reg3_shift = 3;
-static int reg3_value = 0x0;
+static unsigned int reg0_value;
+static unsigned int reg1_value;
+static unsigned int reg2_value;
+static unsigned int reg3_value;
+static unsigned int reg4_value; /* shift register */
+static int count;
 
-void mmc_reg3_reset(void)
+void mmc_shift_reset(void)
 {
-	reg3_value = 0;
-	reg3_shift = 3;
+	reg4_value = 0;
+	count = 0;
+}
+
+static int sendbit(unsigned int b, unsigned int *v)
+{
+	reg4_value = (reg4_value >> 1) | ((b&1) << 4);
+	count++;
+	if(count == 5){
+		*v = reg4_value;
+		count = 0;
+		return 1;
+	}
+	return 0;
+}
+
+void mmc_reg0_sendbit(unsigned int b)
+{
+	if(sendbit(b, &reg0_value))
+		printf("Written %02X to mmc register 0\n", reg4_value);
+}
+
+void mmc_reg1_sendbit(unsigned int b)
+{
+	if(sendbit(b, &reg1_value))
+		printf("Written %02X to mmc register 1\n", reg4_value);
+}
+
+void mmc_reg2_sendbit(unsigned int b)
+{
+	if(sendbit(b, &reg2_value))
+		printf("Written %02X to mmc register 2\n", reg4_value);
 }
 
 void mmc_reg3_sendbit(unsigned int b)
 {
-	reg3_value |= (b&1)<<reg3_shift;
-	reg3_shift--;
-	if(reg3_shift < 0)
-		printf("Reg3 value %0d\n", reg3_value);
-	reg3_value = 0;
+	if(sendbit(b, &reg3_value))
+		printf("Written %02X to mmc register 3\n", reg4_value);
 }

@@ -39,29 +39,18 @@ void init_mem(unsigned char *b)
 
 void writeb(unsigned int addr, unsigned char val)
 {
-//	if(addr >= 0x1E0 && addr <= 0x210)
-//		printf("mem: %02X written to %04X\n", val, addr);
+	/* If mapper == 01 */
+	if(addr >= 0x8000 && (val & 0x80))
+		mmc_shift_reset();
+	else if(addr >= 0x8000 && addr < 0xA000)
+		mmc_reg0_sendbit(val);
+	else if(addr >= 0xA000 && addr < 0xC000)
+		mmc_reg1_sendbit(val);
+	else if(addr >= 0xC000 && addr < 0xE000)
+		mmc_reg2_sendbit(val);
+	else if(addr >= 0xE000 && addr <= 0xFFFF)
+		mmc_reg3_sendbit(val);
 
-	if(addr > 0xE000 && addr <= 0xFFFF){
-		if(val & 0x80){
-			mmc_reg3_reset();
-		}
-		mmc_reg3_sendbit(val & 0x1);
-	}
-	if(addr >= 0x8000 && addr <= 0x9FFF){
-		if(val & 0x80){
-			printf("MMC1 register 0 reset.\n");
-			return;
-		}
-		banksize = val & 0x8 ? 16384 : 32768;
-		swapbank = val & 0x4 ? 0x8000 : 0xC000;
-	}
-
-/*	if(addr >= 0xE000 && addr <= 0xFFFF){
-		printf("MMC register 3\n");
-		printf("\tBank %02X of size %d swapped to %04X\n", val&0xF, banksize, swapbank);
-	}
-*/
 	switch(addr)
 	{
 		case 0x2000:
