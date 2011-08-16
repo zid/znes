@@ -12,7 +12,7 @@ struct CPU {
 	unsigned int cycles;
 };
 
-struct CPU c;
+static struct CPU c;
 
 void init_cpu(void)
 {
@@ -40,11 +40,7 @@ void cpu_cycle(void)
 	unsigned int t;
 	signed char s;
 	printf("PC: %04X, SP: %04X\n", c.pc, c.sp);
-	if(c.pc == 0xFE1A)
-	{
-		printf("FE1A: A register is %02X\n", c.a);
-		exit(0);
-	}
+
 	switch(opcode)
 	{
 		case 0x09:  /* ORA */
@@ -211,7 +207,7 @@ void cpu_cycle(void)
 		break;
 		case 0xA0:  /* LDY imm8 */
 			c.y = get_byte();
-            c.z = !c.y;
+			c.z = !c.y;
 			c.n = !!(c.y & 0x80);
 			c.cycles += 2;
 			c.pc += 2;
