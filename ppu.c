@@ -15,6 +15,7 @@ void ppu_disable_nmis(void)
 
 void init_ppu(void)
 {
+	init_sdl();
 	p.frame = 0;
 }
 
@@ -25,6 +26,8 @@ void ppu_enable_nmis(void)
 
 static void ppu_vblank_starts(void)
 {
+	sdl_frame();
+
 	if(p.vblank_nmi)
 		cpu_nmi(0xFFFA);
 }
@@ -32,6 +35,9 @@ static void ppu_vblank_starts(void)
 void ppu(unsigned int cycles)
 {
 	int frame;
+
+	if(!sdl_update())   /* returns false if SDL caught a quit event */
+		return;
 
 	frame = cycles / 113.6f;
 	frame %= 262;
