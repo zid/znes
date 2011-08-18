@@ -4,7 +4,6 @@
 #include "mem.h"
 #include "cpu.h"
 #include "ppu.h"
-#include "sdl.h"
 
 #define fatal(x) {printf("Fatal error: %s", x); exit(0);}
 
