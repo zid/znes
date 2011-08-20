@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include "ppu.h"
 #include "cpu.h"
+#include "sdl.h"
 
 struct PPU {
 	int vblank_nmi;
@@ -9,6 +10,8 @@ struct PPU {
 	unsigned char *tiles;
 	unsigned char *nametable;
 	unsigned int increment;
+	unsigned int addr;
+	unsigned int addr_count;
 	unsigned int bg;
 };
 
@@ -37,10 +40,28 @@ void ppu_write_reg2(unsigned int val)
 	p.bg = !!(val & 0x8);
 }
 
+void ppu_write_addr(unsigned int val)
+{
+	if(p.addr_count == 0){
+		p.addr = (val & 0x3F)<<8;
+		p.addr_count = 1;
+	} else {
+		p.addr |= val;
+		p.addr_count = 0;
+	}
+}
+
+void ppu_write_data(unsigned int val)
+{
+	p.mem[p.addr] = val;
+	p.addr += p.increment;
+}
+
 void init_ppu(void)
 {
 	init_sdl();
 	p.frame = 0;
+	p.addr_count = 0;
 	p.mem = calloc(1, 0x4000);
 }
 

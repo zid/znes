@@ -66,6 +66,12 @@ void writeb(unsigned int addr, unsigned char val)
 		case 0x2001:
 			ppu_write_reg2(val);
 		break;
+		case 0x2006:
+			ppu_write_addr(val);
+		break;
+		case 0x2007:
+			ppu_write_data(val);
+		break;
 		default:
 			mem[addr] = val;
 		break;
