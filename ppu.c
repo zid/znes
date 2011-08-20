@@ -1,9 +1,11 @@
+#include <stdlib.h>
 #include "ppu.h"
 #include "cpu.h"
 
 struct PPU {
 	int vblank_nmi;
 	int frame;
+	unsigned char *mem;
 };
 
 static struct PPU p;
@@ -20,6 +22,7 @@ void init_ppu(void)
 {
 	init_sdl();
 	p.frame = 0;
+	p.mem = calloc(1, 0x4000);
 }
 
 static void ppu_vblank_starts(void)
