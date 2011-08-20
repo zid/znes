@@ -8,20 +8,18 @@ struct PPU {
 
 static struct PPU p;
 
-void ppu_disable_nmis(void)
+void ppu_write_reg1(unsigned int val)
 {
-	p.vblank_nmi = 0;
+	if(val & 0x80)
+		p.vblank_nmi = 1;
+	else
+		p.vblank_nmi = 0;
 }
 
 void init_ppu(void)
 {
 	init_sdl();
 	p.frame = 0;
-}
-
-void ppu_enable_nmis(void)
-{
-	p.vblank_nmi = 1;
 }
 
 static void ppu_vblank_starts(void)

@@ -61,11 +61,9 @@ void writeb(unsigned int addr, unsigned char val)
 	switch(addr)
 	{
 		case 0x2000:
-			if((val & 0x80) == 0)
-				ppu_disable_nmis();
-			else
-				ppu_enable_nmis();
+			ppu_write_reg1(val);
 		break;
+
 		case 0x2001:
 			if(val & 0x1)
 				printf("Monochrome mode.\n");
