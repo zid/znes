@@ -6,16 +6,29 @@ struct PPU {
 	int vblank_nmi;
 	int frame;
 	unsigned char *mem;
+	unsigned char *tiles;
+	unsigned char *nametable;
+	unsigned int increment;
 };
 
 static struct PPU p;
 
 void ppu_write_reg1(unsigned int val)
 {
-	if(val & 0x80)
-		p.vblank_nmi = 1;
+	/* Possible addresses for name tables */
+	unsigned int name_tables[] = {0x2000, 0x2400, 0x2800, 0x2C00};
+
+	/* Creates a pointer into p.mem at the correct offset */
+	p.nametable = &p.mem[name_tables[val&0x3]];
+
+	p.increment = val & 0x4 ? 32 : 1;
+
+	if(val & 0x10)
+		p.tiles = &p.mem[0x1000];
 	else
-		p.vblank_nmi = 0;
+		p.tiles = &p.mem[0x0000];
+
+	p.vblank_nmi = !!(val & 0x80);
 }
 
 void init_ppu(void)
