@@ -63,32 +63,8 @@ void writeb(unsigned int addr, unsigned char val)
 		case 0x2000:
 			ppu_write_reg1(val);
 		break;
-
 		case 0x2001:
-			if(val & 0x1)
-				printf("Monochrome mode.\n");
-			else
-				printf("Color mode.\n");
-
-			if(val & 0x2)
-				printf("Background clipping disabled.\n");
-			else
-				printf("Background clipping set to left.\n");
-
-			if(val & 0x4)
-				printf("Sprite clipping disabled.\n");
-			else
-				printf("Sprite clipping at left.\n");
-
-			if(val & 0x8)
-				printf("Background displayed.\n");
-			else
-				printf("Background disabled.\n");
-
-			if(val & 0x10)
-				printf("Sprites displayed.\n");
-			else
-				printf("Sprites not displayed.\n");
+			ppu_write_reg2(val);
 		break;
 		default:
 			mem[addr] = val;

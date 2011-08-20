@@ -9,6 +9,7 @@ struct PPU {
 	unsigned char *tiles;
 	unsigned char *nametable;
 	unsigned int increment;
+	unsigned int bg;
 };
 
 static struct PPU p;
@@ -29,6 +30,11 @@ void ppu_write_reg1(unsigned int val)
 		p.tiles = &p.mem[0x0000];
 
 	p.vblank_nmi = !!(val & 0x80);
+}
+
+void ppu_write_reg2(unsigned int val)
+{
+	p.bg = !!(val & 0x8);
 }
 
 void init_ppu(void)
