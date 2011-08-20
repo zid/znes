@@ -2,12 +2,13 @@
 #include "main.h"
 #include "sdl.h"
 
-static SDL_Surface *screen;
+static SDL_Surface *screen, *backbuf;
 
 void init_sdl(void)
 {
 	SDL_Init(SDL_INIT_VIDEO);
-	screen = SDL_SetVideoMode(640, 480, 0, SDL_HWSURFACE | SDL_DOUBLEBUF);
+	screen = SDL_SetVideoMode(256, 240, 0, SDL_HWSURFACE | SDL_DOUBLEBUF);
+	backbuf = SDL_CreateRGBSurface(SDL_SWSURFACE, 256, 240, 24, 0xFF0000, 0xFF00, 0xFF, 0);
 }
 
 int sdl_update(void)
@@ -30,6 +31,6 @@ int sdl_update(void)
 
 void sdl_frame(void)
 {
-	/* Called from the PPU at the start of vblank */
+	SDL_BlitSurface(backbuf, NULL, screen, NULL);
 	SDL_Flip(screen);
 }
