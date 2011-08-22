@@ -11,6 +11,11 @@ void init_sdl(void)
 	backbuf = SDL_CreateRGBSurface(SDL_SWSURFACE, 256, 240, 24, 0xFF0000, 0xFF00, 0xFF, 0);
 }
 
+unsigned char *sdl_get_buffer(void)
+{
+	return backbuf->pixels;
+}
+
 int sdl_update(void)
 {
 	SDL_Event ev;

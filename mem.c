@@ -23,7 +23,7 @@ static unsigned char readb(unsigned int addr)
 	switch(addr)
 	{
 		case 0x2002:
-			return 0x80; /* Always vblank, for now */
+			return ppu_read_reg2();
 		break;
 	}
 

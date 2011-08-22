@@ -41,7 +41,7 @@ void init_rom(unsigned char *b)
 	r.prgbytes = &b[16];
 	r.chrbytes = &b[16 + r.PRGsize];
 	r.flags = b[6];
-
+/*
 	printf("PRG: 0x%X, CHR: 0x%X\n", r.PRGsize, r.CHRsize);
 	printf("Flags:\n");
 
@@ -64,5 +64,5 @@ void init_rom(unsigned char *b)
 	/* Meh, my test rom doesn't use this */
 
 	r.mapper = (r.flags2 & 0xF) | ((r.flags & 0xF0) >> 4);
-	printf("Mapper: %02X\n", r.mapper);
+//	printf("Mapper: %02X\n", r.mapper);
 }

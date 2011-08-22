@@ -39,7 +39,15 @@ void cpu_cycle(void)
 	unsigned int opcode = get_byte_at(c.pc);
 	unsigned int t, t2;
 	signed char s;
-	printf("PC: %04X, SP: %04X\n", c.pc, c.sp);
+//	printf("PC: %04X, SP: %04X\n", c.pc, c.sp);
+	printf("PC:%04X A:%02X X:%02X Y:%02X S:%02X P:%c%cubc%c%c%c\n", c.pc, c.a, c.x, c.y, c.sp&0xFF,
+		c.n ? 'N' : 'n',
+		c.v ? 'V' : 'v',
+		c.i ? 'I' : 'i',
+		c.z ? 'Z' : 'z',
+		c.c ? 'C' : 'c'
+	);
+
 
 	switch(opcode)
 	{
@@ -71,7 +79,7 @@ void cpu_cycle(void)
 			if(c.n == 0) {
 				s = get_byte();
 				c.pc += s + 2;
-				printf("Branched to %04X\n", c.pc);
+//				printf("Branched to %04X\n", c.pc);
 				c.cycles += 3;
 			} else {
 				c.cycles += 2;
@@ -136,7 +144,7 @@ void cpu_cycle(void)
 			if(c.n) {
 				s = get_byte();
 				c.pc += s + 2;
-				printf("Branched to %04X\n", c.pc);
+//				printf("Branched to %04X\n", c.pc);
 				c.cycles += 3;
 			} else {
 				c.cycles += 2;
@@ -169,14 +177,27 @@ void cpu_cycle(void)
 			c.cycles += 3;
 		break;
 		case 0x60:  /* RTS */
-			printf("SP: %04X, %02X %02X %02X %02X\n", c.sp, get_byte_at(c.sp-1),
-                get_byte_at(c.sp),get_byte_at(c.sp+1),get_byte_at(c.sp+2));
-			printf("Read %04X for rts\n", get_short_at(c.sp+1));
+//			printf("SP: %04X, %02X %02X %02X %02X\n", c.sp, get_byte_at(c.sp-1),
+//                get_byte_at(c.sp),get_byte_at(c.sp+1),get_byte_at(c.sp+2));
+//			printf("Read %04X for rts\n", get_short_at(c.sp+1));
 			c.pc = get_short_at(c.sp+1);
 			c.pc += 1;
-			printf("RTS to %04X\n", c.pc);
+//			printf("RTS to %04X\n", c.pc);
 			c.sp += 2;
 			c.cycles += 6;
+		break;
+		case 0x65:  /* ADC mem8 */
+			t = get_byte();
+			s = get_byte_at(t);
+			c.a += s + c.c;
+			/* TODO: Fix overflow flag */
+//			c.v = a > 128 ? 1 : 0;
+			c.c = !!(c.a & 0x100);
+			c.a &= 0xFF;
+			c.n = !(c.a & 0x80);
+			c.z = !(c.a);
+			c.pc += 2;
+			c.cycles += 2;
 		break;
 		case 0x68:  /* PLA */
 			c.a = get_byte_at(c.sp+1);
@@ -210,7 +231,7 @@ void cpu_cycle(void)
 			c.cycles += 2;
 		break;
 		case 0x78:  /* SEI - Disable interrupts */
-			printf("Interrupts disabled, great, less work.\n");
+//			printf("Interrupts disabled, great, less work.\n");
 			c.i = 1;
 			c.cycles += 2;
 			c.pc++;
@@ -250,7 +271,7 @@ void cpu_cycle(void)
 			if(!c.c) {
 				s = get_byte();
 				c.pc += s + 2;
-				printf("Branched to %04X\n", c.pc);
+//				printf("Branched to %04X\n", c.pc);
 				c.cycles += 3;
 			} else {
 				c.cycles += 2;
@@ -341,6 +362,14 @@ void cpu_cycle(void)
 			c.pc += 3;
 			c.cycles += 4;
 		break;
+		case 0xAE:  /* LDX imm8 */
+			t = get_short();
+			c.x = get_byte_at(t);
+			c.z = !c.x;
+			c.n = !!(c.x & 0x80);
+			c.pc += 3;
+			c.cycles += 4;
+		break;
 		case 0xAA:  /* TAX */
 			c.x = c.a;
 			c.n = !!(c.x & 0x80);
@@ -352,7 +381,7 @@ void cpu_cycle(void)
 			if(c.c) {
 				s = get_byte();
 				c.pc += s + 2;
-				printf("Branched to %04X\n", c.pc);
+//				printf("Branched to %04X\n", c.pc);
 				c.cycles += 3;
 			} else {
 				c.cycles += 2;
@@ -364,6 +393,8 @@ void cpu_cycle(void)
 			t = get_short_at(t);
 			t += c.y;
 			c.a = get_byte_at(t);
+			c.z = !c.a;
+			c.n = !!(c.a & 0x80);
 			c.pc += 2;
 			c.cycles += 5; /* TODO: Page crossing cycle */
 		break;
@@ -419,7 +450,7 @@ void cpu_cycle(void)
 			if(c.z == 0) {
 				s = get_byte();
 				c.pc += s + 2;
-				printf("Branched to %04X\n", c.pc);
+//				printf("Branched to %04X\n", c.pc);
 				c.cycles += 3;
 			} else {
 				c.cycles += 2;
@@ -436,7 +467,7 @@ void cpu_cycle(void)
 			c.cycles += 6;
 		break;
 		case 0xD8:
-			printf("Clear decimal mode.\n");
+//			printf("Clear decimal mode.\n");
 			c.d = 0;
 			c.cycles += 2;
 			c.pc += 1;
@@ -451,7 +482,7 @@ void cpu_cycle(void)
 		break;
 		case 0xE6:  /* INC mem8 */
 			t = get_byte();
-			writeb(t, get_byte_at(t));
+			writeb(t, get_byte_at(t)+1);
 			c.pc += 2;
 			c.cycles += 5;
 		break;
@@ -477,7 +508,7 @@ void cpu_cycle(void)
 				s = get_byte();
 				c.pc += s + 2;
 				c.cycles += (t & 0xFF00) == (c.pc & 0xFF00) ? 1 : 2;
-				printf("BEQ to %04X\n", c.pc);
+//				printf("BEQ to %04X\n", c.pc);
 				break;
 			}
 			c.pc += 2;
