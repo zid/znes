@@ -1,4 +1,6 @@
-#include <windows.h>
+#include <sys/stat.h>
+#include <sys/mman.h>
+#include <fcntl.h>
 #include <stdio.h>
 #include "rom.h"
 #include "mem.h"
@@ -16,21 +18,13 @@ void main_quit(void)
 
 int main(void)
 {
-	HANDLE f, map;
+	int fd, len;
 	unsigned char *rombytes;
+	struct stat st;
+	fd = open("nestest.nes", O_RDONLY);
+	fstat(fd, &st);
 
-	f = CreateFile("nestest.nes", GENERIC_READ, FILE_SHARE_READ, NULL,
-		OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
-	if(f == INVALID_HANDLE_VALUE)
-	    fatal("Unable to open rom file.\n");
-
-	map = CreateFileMapping(f, NULL, PAGE_READONLY, 0, 0, NULL);
-	if(!map)
-		fatal("Couldn't create file map.\n");
-
-	rombytes = MapViewOfFile(map, FILE_MAP_READ, 0, 0, 0);
-	if(!rombytes)
-	    fatal("Couldn't map view of file.\n");
+	rombytes = mmap(0, st.st_size, PROT_READ, MAP_PRIVATE, fd, 0);
 
 	init_rom(rombytes);
 	printf("ROM OK\n");

@@ -5,6 +5,7 @@
 #include "mmc.h"
 #include "ppu.h"
 #include "rom.h"
+#include "joypad.h"
 
 static unsigned char *mem;
 
@@ -23,6 +24,9 @@ static unsigned char readb(unsigned int addr)
 	{
 		case 0x2002:
 			return ppu_read_reg2();
+		break;
+		case 0x4016:
+			return joypad_read();
 		break;
 	}
 
@@ -76,6 +80,9 @@ void writeb(unsigned int addr, unsigned char val)
 		break;
 		case 0x2007:
 			ppu_write_data(val);
+		break;
+		case 0x4016:
+			joypad_write(val);
 		break;
 		default:
 			mem[addr] = val;
