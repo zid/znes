@@ -127,10 +127,12 @@ void cpu_cycle(void)
 		break;
 		case 0x26:  /* ROL mem8 */
 			t = get_byte();
-			t = get_byte_at(t);
-			t2 = t;
-			t = (t<<7) | c.c;
+			t2 = get_byte_at(t);
+			c.z = c.c; /* Temporary, c.z will be recalculated */
 			c.c = !!(t2 & 0x80);
+			t2 = (t2 << 1) | c.z;
+			writeb(t, t2);
+			c.z = !t2;
 			c.pc += 2;
 			c.cycles += 5;
 		break;
@@ -470,6 +472,17 @@ void cpu_cycle(void)
 			c.z = c.a == t;
 			c.n = !!((c.a - t)&0x80);
 			c.cycles += 3;
+			c.pc += 2;
+		break;
+		case 0xC6:  /* DEC mem 8*/
+			t = get_byte();
+			t2 = get_byte_at(t);
+			t2--;
+			t2 &= 0xFF;
+			writeb(t, t2);
+			c.z = !t2;
+			c.n = !!(t2 & 0x80);
+			c.cycles += 5;
 			c.pc += 2;
 		break;
 		case 0xC8:  /* INY */
