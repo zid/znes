@@ -18,6 +18,11 @@ struct ROM {
 
 static struct ROM r;
 
+unsigned int rom_chr_is_readonly(void)
+{
+	return r.CHRsize;
+}
+
 unsigned char *rom_getbytes(void)
 {
 	return r.rombytes;
@@ -26,6 +31,11 @@ unsigned char *rom_getbytes(void)
 void rom_load_bank(unsigned int addr, unsigned int bank, unsigned int size)
 {
 	memcpy(mem_getaddr(addr), &r.rombytes[bank*size], size);
+}
+
+unsigned char *rom_get_chr(unsigned int bank)
+{
+	return &r.chrbytes[bank * 0x1000];
 }
 
 void init_rom(unsigned char *b)
@@ -41,8 +51,10 @@ void init_rom(unsigned char *b)
 	r.prgbytes = &b[16];
 	r.chrbytes = &b[16 + r.PRGsize];
 	r.flags = b[6];
-/*
+
+
 	printf("PRG: 0x%X, CHR: 0x%X\n", r.PRGsize, r.CHRsize);
+	printf("PRG: %04X, CHR: %04X\n", 16, 16 + r.PRGsize);
 	printf("Flags:\n");
 
 	if(r.flags & 0x8){
@@ -64,5 +76,5 @@ void init_rom(unsigned char *b)
 	/* Meh, my test rom doesn't use this */
 
 	r.mapper = (r.flags2 & 0xF) | ((r.flags & 0xF0) >> 4);
-//	printf("Mapper: %02X\n", r.mapper);
+	printf("Mapper: %02X\n", r.mapper);
 }

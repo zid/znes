@@ -3,11 +3,10 @@
 #include <stdio.h>
 #include "mem.h"
 #include "mmc.h"
+#include "ppu.h"
 #include "rom.h"
 
 static unsigned char *mem;
-static int banksize;
-static int swapbank;
 
 unsigned char *mem_getaddr(unsigned int b)
 {
@@ -39,8 +38,14 @@ void init_mem(void)
 	unsigned char *b = rom_getbytes();
 
 	mem = calloc(0x10000, 1); /* 0 - FFFF */
-	memcpy(&mem[0x8000], b+0x38000, 16384);
-	memcpy(&mem[0xC000], b+0x3C000, 16384);
+
+	/* MMC1, waiting for mapper.c to be implemented */
+//	memcpy(&mem[0x8000], b+0x38000, 0x4000);
+//	memcpy(&mem[0xC000], b+0x3C000, 0x4000);
+
+	/* Mapper0 */
+	memcpy(&mem[0x8000], b, 0x4000);
+	memcpy(&mem[0xC000], b, 0x4000);
 //  memcpy(&mem[0x6000], sram from file);
 }
 

@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include "mmc.h"
+#include "rom.h"
 
 static unsigned int reg0_value;
 static unsigned int reg1_value;

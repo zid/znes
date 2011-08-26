@@ -1,8 +1,12 @@
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
+#include "rom.h"
 #include "ppu.h"
 #include "cpu.h"
 #include "sdl.h"
+
+extern unsigned char palette[64][3];
 
 struct PPU {
 	int vblank_nmi;
@@ -64,38 +68,78 @@ unsigned int ppu_read_reg2(void)
 	return t;
 }
 
+/* Various mirrors between 0x3F00 and 0x4000 exist. Take an address in that
+ * range and return the lowest address which it is a mirror of.
+ */
+unsigned int ppu_mem_palette_mirror(unsigned int addr)
+{
+	unsigned int newaddr;
+
+	newaddr = 0x3F00 + (addr & 0x1F);
+
+	switch(newaddr){
+		case 0x3F10:
+			return 0x3F00;
+		break;
+		case 0x3F14:
+			return 0x3F04;
+		break;
+		case 0x3F18:
+			return 0x3F08;
+		break;
+		case 0x3F1C:
+			return 0x3F0C;
+		break;
+		default:
+			return newaddr;
+		break;
+	}
+}
+
 void ppu_write_data(unsigned int val)
 {
-	if(p.addr == 0x2000)
-	{
-		printf("Written %02X to 0x2000\n", val);
+	unsigned int addr;
+
+	addr = p.addr;
+
+	if(p.addr < 0x2000 && rom_chr_is_readonly()){
+		goto nowrite;
 	}
-	p.mem[p.addr] = val;
+	if(p.addr >= 0x3F00 && p.addr < 0x4000)
+		addr = ppu_mem_palette_mirror(p.addr);
+
+	p.mem[addr] = val;
+nowrite:
 	p.addr += p.increment;
 }
 
 void init_ppu(void)
 {
 	init_sdl();
+	printf("SDL OK\n");
 	p.scanline = 0;
 	p.addr_count = 0;
 	p.vblank = 0;
 	p.mem = calloc(1, 0x4000);
+	memcpy(&p.mem[0], rom_get_chr(0), 0x1000);
 }
 
-/* Test palette! */
-static int paletter[4] = {0x00, 0x50, 0xA0, 0xFF};
-static int paletteg[4] = {0x00, 0x50, 0xA0, 0xFF};
-static int paletteb[4] = {0x00, 0x50, 0xA0, 0xFF};
-
-static void ppu_draw_tile(unsigned char *b, unsigned int ty, unsigned int tx, unsigned int tile)
+unsigned int ppu_get_palette_address(unsigned int pnum)
 {
-	unsigned int y, x, px, py;
+	unsigned int palettes[] = {0x3F00, 0x3F04, 0x3F08, 0x3F0C};
+
+	return palettes[pnum];
+}
+
+static void ppu_draw_tile(unsigned char *b, unsigned int ty, unsigned int tx, unsigned int tile, unsigned int pnum)
+{
+	unsigned int y, x, px, py, paddr;
 	unsigned char *tiledata, *out;
 	unsigned int pindex[8]; /* 8 palette entries for a row of a tile */
 
-//	printf("Tile: %02X\n", tile);
 	tiledata = &p.tiles[tile*16];
+
+	paddr = ppu_get_palette_address(pnum);
 
 	for(y = 0; y < 8; y++){
 		/* First 8 bytes of tile data contain the lower order bit of the
@@ -104,29 +148,80 @@ static void ppu_draw_tile(unsigned char *b, unsigned int ty, unsigned int tx, un
 		 * the byte number y and y+8's xth bit. For example, y=3, x=2
 		 * you would take byte 3 and 11, and take bit 2 of each byte.
 		 */
-		pindex[7] = !!(tiledata[y] & 0x01) | (!!(tiledata[y+8] & 0x01))<<1;
-		pindex[6] = !!(tiledata[y] & 0x02) | (!!(tiledata[y+8] & 0x02))<<1;
-		pindex[5] = !!(tiledata[y] & 0x04) | (!!(tiledata[y+8] & 0x04))<<1;
-		pindex[4] = !!(tiledata[y] & 0x08) | (!!(tiledata[y+8] & 0x08))<<1;
-		pindex[3] = !!(tiledata[y] & 0x10) | (!!(tiledata[y+8] & 0x10))<<1;
-		pindex[2] = !!(tiledata[y] & 0x20) | (!!(tiledata[y+8] & 0x20))<<1;
-		pindex[1] = !!(tiledata[y] & 0x40) | (!!(tiledata[y+8] & 0x40))<<1;
-		pindex[0] = !!(tiledata[y] & 0x80) | (!!(tiledata[y+8] & 0x80))<<1;
+		pindex[7] = (!!(tiledata[y] & 0x01)) | (!!(tiledata[y+8] & 0x01))<<1;
+		pindex[6] = (!!(tiledata[y] & 0x02)) | (!!(tiledata[y+8] & 0x02))<<1;
+		pindex[5] = (!!(tiledata[y] & 0x04)) | (!!(tiledata[y+8] & 0x04))<<1;
+		pindex[4] = (!!(tiledata[y] & 0x08)) | (!!(tiledata[y+8] & 0x08))<<1;
+		pindex[3] = (!!(tiledata[y] & 0x10)) | (!!(tiledata[y+8] & 0x10))<<1;
+		pindex[2] = (!!(tiledata[y] & 0x20)) | (!!(tiledata[y+8] & 0x20))<<1;
+		pindex[1] = (!!(tiledata[y] & 0x40)) | (!!(tiledata[y+8] & 0x40))<<1;
+		pindex[0] = (!!(tiledata[y] & 0x80)) | (!!(tiledata[y+8] & 0x80))<<1;
 
 		/* Calculate what pixel on screen this represents */
 		py = 256 * ((ty * 8) + y);
 
 		for(x = 0; x < 8; x++){
+			unsigned int addr, red, green, blue;
+
+			/* Convert from a palette index (0-3) and a palette address
+			 * into an address suitable for reading from, because of the
+			 * internal mirroring of various palette adresses.
+			 */
+			addr = ppu_mem_palette_mirror(paddr + pindex[x]);
+
+			/* Convert NES colour value to an RGB value using a LUT. */
+//			red   = palette[(p.mem[addr]*3)+0];
+	//		green = palette[(p.mem[addr]*3)+1];
+		//	blue  = palette[(p.mem[addr]*3)+2];
+			red   = palette[p.mem[addr]][0];
+			green = palette[p.mem[addr]][1];
+			blue  = palette[p.mem[addr]][2];
+			/* Calc offset into the output texture to write our RBG triplet */
 			px = (tx * 8) + x;
-			out = b + (px + py) * 3; /* 3 bytes per pixel, onscreen */
+			out = b + (px + py) * 3; /* 3 bytes per pixel */
 
-			if(pindex[x] > 3){ printf("Pallete calculation disorder.\n"); exit(0);}
-			out[0] = paletter[pindex[x]];
-			out[1] = paletteg[pindex[x]];
-			out[2] = paletteb[pindex[x]];
-
+			out[2] = red;
+			out[1] = green;
+			out[0] = blue;
 		}
 	}
+}
+
+unsigned int palette_for_tile(unsigned int x, unsigned int y, unsigned char *attrib)
+{
+	unsigned int offset, shift;
+
+	/* Each byte of the attribute table contains the palette index for four
+	 * 2x2 tile areas. The attribute table thus needs to convert a 32*30
+	 * style coordinate into a 8*8 (less 2 rows) table.
+	 */
+
+	/* Clear the bottom two bits and use the 2D array formula y*width + x
+	 * to calculate the offset byte. This works because the nametable is
+	 * at x4 scale compared to the nametable, and 2^2 = 4.
+	 */
+	/* offset = (8*y/4) + (x/4) */
+	offset = ((y>>2)<<3) + (x>>2);
+
+	/* Each byte in the nametable represents a 4x4 tile block like this:
+	 * _______
+	 * |AA|BB|
+	 * |AA|BB|
+	 * ---+---
+	 * |CC|DD|
+	 * |CC|DD|
+	 * -------
+	 * Where AA is bit 0-1, BB is bit 2-3, CC is bit 4-5, DD is bit 6-7.
+	 * Because 4 tiles are indexed by a single 2 bit entry, the coordinates
+	 * are only needed to 1/4th the precision. So (once rounded to the nearest
+	 * multiple of 2), x=0-1 is represented by AA, x=2-3 is represented by BB.
+	 * Which half byte (4 bits) to use is given by y/2. Which 2 bits within that
+	 * half byte is given by x/2.
+	 */
+
+	shift = 2 * ((y>>1)&1) + ((x>>1)&1);
+
+	return (attrib[offset] >> shift) & 0x3; /* 0x3 is 0b11 */
 }
 
 static void ppu_draw_frame(unsigned char *b)
@@ -135,22 +230,19 @@ static void ppu_draw_frame(unsigned char *b)
 
 	for(y = 0; y < 30; y++){
 		for(x = 0; x < 32; x++){
-			unsigned int tile;
+			unsigned int tile, palette;
 
-			FILE *f = fopen("nametable.bin", "ab");
-			fwrite(p.nametable, 0x3C0, 1, f);
-			fclose(f);
 			tile = p.nametable[y*32+x];
-			ppu_draw_tile(b, y, x, tile);
+			palette = palette_for_tile(x, y, &p.nametable[0x3C0]);
+			ppu_draw_tile(b, y, x, tile, palette);
 		}
 	}
-
+//	exit(0);
 }
 
 static void ppu_vblank_starts(void)
 {
 	unsigned char *b;
-
 	if(p.bg){
 		/* Get pointer from sdl to a buffer for rendering */
 		b = sdl_get_buffer();

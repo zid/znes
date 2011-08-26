@@ -31,6 +31,14 @@ void init_cpu(void)
 
 void cpu_nmi(unsigned int addr)
 {
+	unsigned int flags;
+
+	flags = (c.n<<7) | (c.v<<6)| (1<<5) | (c.d<<3) | (c.i<<2) | (c.z<<1) | (c.c);
+	writeb(c.sp, (c.pc & 0xFF00)>>8);
+	writeb(c.sp-1, c.pc & 0xFF);
+	writeb(c.sp-2, flags);
+	c.sp -= 3;
+
 	c.pc = get_short_at(addr);
 }
 
@@ -40,13 +48,13 @@ void cpu_cycle(void)
 	unsigned int t, t2;
 	signed char s;
 //	printf("PC: %04X, SP: %04X\n", c.pc, c.sp);
-	printf("PC:%04X A:%02X X:%02X Y:%02X S:%02X P:%c%cubc%c%c%c\n", c.pc, c.a, c.x, c.y, c.sp&0xFF,
+/*	printf("PC:%04X A:%02X X:%02X Y:%02X S:%02X P:%c%cubc%c%c%c\n", c.pc, c.a, c.x, c.y, c.sp&0xFF,
 		c.n ? 'N' : 'n',
 		c.v ? 'V' : 'v',
 		c.i ? 'I' : 'i',
 		c.z ? 'Z' : 'z',
 		c.c ? 'C' : 'c'
-	);
+	);*/
 
 
 	switch(opcode)
@@ -156,12 +164,30 @@ void cpu_cycle(void)
 			c.pc++;
 			c.cycles += 2;
 		break;
+		case 0x40:  // RTI
+			t = get_byte_at(c.sp + 1);
+			c.pc = get_short_at(c.sp + 2);
+			c.n = !!(t & 0x80);
+			c.v = !!(t & 0x40);
+			c.d = !!(t & 0x08);
+			c.i = !!(t & 0x04);
+			c.z = !!(t & 0x02);
+			c.c = !!(t & 0x01);
+			c.sp += 3;
+			c.cycles += 6;
+		break;
 		case 0x45:  /* EOR mem8 */
 			t = get_byte();
 			c.a ^= get_byte_at(t);
 			c.z = !c.a;
 			c.n = !!(c.a & 0x80);
 			c.pc += 2;
+			c.cycles += 3;
+		break;
+		case 0x48:  /* PHA */
+			writeb(c.sp, c.a);
+			c.sp--;
+			c.pc += 1;
 			c.cycles += 3;
 		break;
 		case 0x4A:  /* LSR A */
@@ -200,8 +226,8 @@ void cpu_cycle(void)
 			c.cycles += 2;
 		break;
 		case 0x68:  /* PLA */
-			c.a = get_byte_at(c.sp+1);
-//			c.sp++;
+			c.sp++;
+			c.a = get_byte_at(c.sp);
 			c.cycles += 4;
 			c.pc++;
 		break;
@@ -248,12 +274,26 @@ void cpu_cycle(void)
 			c.pc += 2;
 			c.cycles += 3;
 		break;
+		case 0x88:  /* DEY */
+			c.y--;
+			c.y &= 0xFF;
+			c.z = !c.y;
+			c.n = !!(c.y & 0x80);
+			c.cycles += 2;
+			c.pc++;
+		break;
 		case 0x8A:  /* TXA */
 			c.a = c.x;
 			c.z = !c.a;
 			c.n = !!(c.a & 0x80);
 			c.pc += 1;
 			c.cycles += 2;
+		break;
+		case 0x8C:  /* STY m16 */
+			t = get_short();
+			writeb(t, c.y);
+			c.cycles += 4;
+			c.pc += 3;
 		break;
 		case 0x8D:  /* STA m16 */
 			t = get_short();
@@ -410,16 +450,25 @@ void cpu_cycle(void)
 			t = get_short() + c.x;
 			c.a = get_byte_at(t);
 			c.cycles += 3;
-			if(c.pc & 0xFF00 != t & 0xFF00)
+			if((c.pc & 0xFF00) != (t & 0xFF00))
 				c.cycles++;
 			c.pc += 3;
 		break;
 		case 0xC0:  /* CPY imm8 */
 			t = get_byte();
-			c.c = c.y > t ? 1 : 0;
+			c.c = !!((c.y-t) < 0x100);
 			c.z = c.y == t;
 			c.n = !!((c.y - t)&0x80);
 			c.cycles += 2;
+			c.pc += 2;
+		break;
+		case 0xC5:  /* CMP mem8 */
+			t = get_byte();
+			t = get_byte_at(t);
+			c.c = !!((c.a-t) < 0x100);
+			c.z = c.a == t;
+			c.n = !!((c.a - t)&0x80);
+			c.cycles += 3;
 			c.pc += 2;
 		break;
 		case 0xC8:  /* INY */
@@ -432,7 +481,7 @@ void cpu_cycle(void)
 		break;
 		case 0xC9:  /* CMP imm8 */
 			t = get_byte();
-			c.c = c.a > t ? 1 : 0;
+			c.c = !!((c.a-t) < 0x100);
 			c.z = c.a == t;
 			c.n = !!((c.a - t)&0x80);
 			c.cycles += 2;
@@ -474,7 +523,7 @@ void cpu_cycle(void)
 		break;
 		case 0xE0:  /* CPX imm8 */
 			t = get_byte();
-			c.c = c.x > t ? 1 : 0;
+			c.c = !!((c.x-t) < 0x100);
 			c.z = c.x == t;
 			c.n = !!((c.x - t)&0x80);
 			c.cycles += 2;
@@ -507,7 +556,7 @@ void cpu_cycle(void)
 			if(c.z){
 				s = get_byte();
 				c.pc += s + 2;
-				c.cycles += (t & 0xFF00) == (c.pc & 0xFF00) ? 1 : 2;
+//s				c.cycles += (t & 0xFF00) == (c.pc & 0xFF00) ? 1 : 2;
 //				printf("BEQ to %04X\n", c.pc);
 				break;
 			}
@@ -520,7 +569,7 @@ void cpu_cycle(void)
 			printf("Z: %1u, N: %1u, V: %1u, C: %1u\n", c.z, c.n, c.v, c.c);
 			printf("I: %1u, D: %1u, SP: %04X\n", c.i, c.d, c.sp);
            	printf("Unhandled opcode: %02X at %04X\n", opcode, c.pc);
-			for(t = c.pc; t < c.pc+16; t++)
+			for(t = c.sp-4; t < c.sp+8; t++)
 				printf("%02X ", get_byte_at(t));
 			printf("\n");
 			exit(0);

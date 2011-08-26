@@ -19,7 +19,7 @@ int main(void)
 	HANDLE f, map;
 	unsigned char *rombytes;
 
-	f = CreateFile("ff1.nes", GENERIC_READ, FILE_SHARE_READ, NULL,
+	f = CreateFile("nestest.nes", GENERIC_READ, FILE_SHARE_READ, NULL,
 		OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
 	if(f == INVALID_HANDLE_VALUE)
 	    fatal("Unable to open rom file.\n");
@@ -33,9 +33,13 @@ int main(void)
 	    fatal("Couldn't map view of file.\n");
 
 	init_rom(rombytes);
+	printf("ROM OK\n");
 	init_mem();
+	printf("Mem OK\n");
 	init_cpu();
+	printf("CPU OK\n");
 	init_ppu();
+	printf("PPU OK\n");
 
 	while(running){
 		/* Emulates one opcode of the cpu per call */
