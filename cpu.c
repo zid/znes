@@ -30,7 +30,7 @@ void init_cpu(void)
 	c.d = 0;
 }
 
-void cpu_nmi(unsigned int addr)
+static void push_flags(void)
 {
 	unsigned int flags;
 
@@ -39,6 +39,24 @@ void cpu_nmi(unsigned int addr)
 	writeb(c.sp-1, c.pc & 0xFF);
 	writeb(c.sp-2, flags);
 	c.sp -= 3;
+}
+static void pull_flags(void)
+{
+	unsigned int t;
+	t = get_byte_at(c.sp + 1);
+
+	c.n = !!(t & 0x80);
+	c.v = !!(t & 0x40);
+	c.d = !!(t & 0x08);
+	c.i = !!(t & 0x04);
+	c.z = !!(t & 0x02);
+	c.c = !!(t & 0x01);
+	c.sp += 3;
+}
+
+void cpu_nmi(unsigned int addr)
+{
+	push_flags();
 
 	c.pc = get_short_at(addr);
 }
@@ -49,13 +67,13 @@ void cpu_cycle(void)
 	unsigned int t, t2;
 	signed char s;
 //	printf("PC: %04X, SP: %04X\n", c.pc, c.sp);
-/*	printf("PC:%04X A:%02X X:%02X Y:%02X S:%02X P:%c%cubc%c%c%c\n", c.pc, c.a, c.x, c.y, c.sp&0xFF,
+	printf("PC:%04X A:%02X X:%02X Y:%02X S:%02X P:%c%cubc%c%c%c\n", c.pc, c.a, c.x, c.y, c.sp&0xFF,
 		c.n ? 'N' : 'n',
 		c.v ? 'V' : 'v',
 		c.i ? 'I' : 'i',
 		c.z ? 'Z' : 'z',
 		c.c ? 'C' : 'c'
-	);*/
+	);
 
 
 	switch(opcode)
@@ -67,6 +85,11 @@ void cpu_cycle(void)
 			c.z = !c.a;
 			c.pc += 2;
 			c.cycles += 2;
+		break;
+		case 0x08:  /* PHP */
+			push_flags();
+			c.pc += 1;
+			c.cycles += 3;
 		break;
 		case 0x09:  /* ORA imm8 */
 			t = get_byte();
@@ -117,6 +140,15 @@ void cpu_cycle(void)
 			c.sp -= 2;
 			c.cycles += 6;
 		break;
+		case 0x24:  /* BIT mem8 */
+			t = get_byte();
+			t = get_byte_at(t);
+			c.z = !(t & c.a);
+			c.n = !!(t&0x80);
+			c.v = !!(t&0x40);
+			c.pc += 2;
+			c.cycles += 3;
+		break;
 		case 0x25:  /* AND mem8 */
 			t = get_byte();
 			c.a &= get_byte_at(t);
@@ -136,16 +168,23 @@ void cpu_cycle(void)
 			c.pc += 2;
 			c.cycles += 5;
 		break;
+		case 0x28:  /* PLP */
+			pull_flags();
+			c.pc += 1;
+			c.cycles += 3;
+		break;
 		case 0x29:  /* AND imm8 */
 			t = get_byte();
 			c.a &= t;
+			c.n = !!(c.a & 0x80);
+			c.z = !c.a;
 			c.pc += 2;
 			c.cycles += 2;
 		break;
 		case 0x2C:  /* BIT m16 */
 			t = get_short();
 			t = get_byte_at(t);
-			c.z = !!(t & c.a);
+			c.z = !(t & c.a);
 			c.n = !!(t&0x80);
 			c.v = !!(t&0x40);
 			c.cycles += 4;
@@ -168,15 +207,8 @@ void cpu_cycle(void)
 			c.cycles += 2;
 		break;
 		case 0x40:  // RTI
-			t = get_byte_at(c.sp + 1);
 			c.pc = get_short_at(c.sp + 2);
-			c.n = !!(t & 0x80);
-			c.v = !!(t & 0x40);
-			c.d = !!(t & 0x08);
-			c.i = !!(t & 0x04);
-			c.z = !!(t & 0x02);
-			c.c = !!(t & 0x01);
-			c.sp += 3;
+			pull_flags();
 			c.cycles += 6;
 		break;
 		case 0x45:  /* EOR mem8 */
@@ -193,6 +225,14 @@ void cpu_cycle(void)
 			c.pc += 1;
 			c.cycles += 3;
 		break;
+		case 0x49:  /* EOR imm8 */
+			t = get_byte();
+			c.a ^= t;
+			c.n = !!(c.a & 0x80);
+			c.z = !c.a;
+			c.pc += 2;
+			c.cycles += 2;
+		break;
 		case 0x4A:  /* LSR A */
 			c.c = c.a & 1;
 			c.a = c.a >> 1;
@@ -204,6 +244,16 @@ void cpu_cycle(void)
 		case 0x4C:  /* JMP */
 			c.pc = get_short();
 			c.cycles += 3;
+		break;
+		case 0x50:  /* BVC s8 */
+			if(!c.v) {
+				s = get_byte();
+				c.pc += s + 2;
+				c.cycles += 3;
+			} else {
+				c.cycles += 2;
+				c.pc += 2;
+			}
 		break;
 		case 0x60:  /* RTS */
 //			printf("SP: %04X, %02X %02X %02X %02X\n", c.sp, get_byte_at(c.sp-1),
@@ -218,12 +268,15 @@ void cpu_cycle(void)
 		case 0x65:  /* ADC mem8 */
 			t = get_byte();
 			s = get_byte_at(t);
+			t2 = get_byte_at(t);
+			t = c.a;
+
 			c.a += s + c.c;
-			/* TODO: Fix overflow flag */
-//			c.v = a > 128 ? 1 : 0;
+
+			c.v = !!(~(t ^ t2) & (t ^ c.a) & 0x80);
 			c.c = !!(c.a & 0x100);
 			c.a &= 0xFF;
-			c.n = !(c.a & 0x80);
+			c.n = !!(c.a & 0x80);
 			c.z = !(c.a);
 			c.pc += 2;
 			c.cycles += 2;
@@ -235,16 +288,31 @@ void cpu_cycle(void)
 			c.pc++;
 		break;
 		case 0x69:  /* ADC imm8 */
-			s = get_byte();
-			c.a += s + c.c;
-			/* TODO: Fix overflow flag */
-//			c.v = a > 128 ? 1 : 0;
+			t = get_byte();
+			t2 = c.a;
+			c.a += t + c.c;
 			c.c = !!(c.a & 0x100);
 			c.a &= 0xFF;
-			c.n = !(c.a & 0x80);
+			c.v = !!(~(t2 ^ t) & (t2 ^ c.a) & 0x80);
+			c.n = !!(c.a & 0x80);
 			c.z = !(c.a);
 			c.pc += 2;
 			c.cycles += 2;
+		break;
+		case 0x6C:  /* JMP mem16 */
+			t = get_short();
+			c.pc = get_short_at(t);
+			c.cycles += 5;
+		break;
+		case 0x70:  /* BVS s8 */
+			if(c.v) {
+				s = get_byte();
+				c.pc += s + 2;
+				c.cycles += 3;
+			} else {
+				c.cycles += 2;
+				c.pc += 2;
+			}
 		break;
 		case 0x75:  /* ADC mem8, x */
 			t = get_byte();
@@ -265,6 +333,7 @@ void cpu_cycle(void)
 			c.cycles += 2;
 			c.pc++;
 		break;
+//		case 0x84:  /*
 		case 0x85:  /* STA m8 */
 			t = get_byte();
 			writeb(t, c.a);
@@ -449,6 +518,11 @@ void cpu_cycle(void)
 			c.cycles += 4;
 			c.pc += 2;
 		break;
+		case 0xB8:  /* CLV */
+			c.v = 0;
+			c.pc += 1;
+			c.cycles += 2;
+		break;
 		case 0xBD:  /* LDA mem16, x */
 			t = get_short() + c.x;
 			c.a = get_byte_at(t);
@@ -560,10 +634,21 @@ void cpu_cycle(void)
 		break;
 		case 0xE9:  /* SBC imm8 */
 			s = get_byte();
+			t = get_byte();
+			t2 = c.a;
+
 			c.a -= s + !c.c;
+			c.c = !(c.a > 0xFF);
 			c.a &= 0xFF;
 			c.z = !c.a;
+
+			c.v = !!((t2 ^ t) & (t2 ^ c.a) & 0x80);
+
 			c.pc += 2;
+			c.cycles += 2;
+		break;
+		case 0xEA:  /* NOP */
+			c.pc += 1;
 			c.cycles += 2;
 		break;
 		case 0xF0:  /* BEQ */
@@ -575,6 +660,11 @@ void cpu_cycle(void)
 				break;
 			}
 			c.pc += 2;
+			c.cycles += 2;
+		break;
+		case 0xF8:  /* SED */
+			c.d = 1;
+			c.pc += 1;
 			c.cycles += 2;
 		break;
 		default:
