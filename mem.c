@@ -13,10 +13,6 @@ unsigned char *mem_getaddr(unsigned int b)
 {
 	return &mem[b];
 }
-unsigned int get_short_at(unsigned int addr)
-{
-	return mem[addr+1] << 8 | mem[addr];
-}
 
 static unsigned char readb(unsigned int addr)
 {
@@ -30,8 +26,17 @@ static unsigned char readb(unsigned int addr)
 		break;
 	}
 
+	if(addr > 0x7FF && addr < 0x2000)
+		addr &= 0x7FF;
+
 	return mem[addr];
 }
+
+unsigned int get_short_at(unsigned int addr)
+{
+	return readb(addr+1) << 8 | readb(addr);
+}
+
 unsigned char get_byte_at(unsigned int addr)
 {
 	return readb(addr);
@@ -50,11 +55,16 @@ void init_mem(void)
 	/* Mapper0 */
 	memcpy(&mem[0x8000], b, 0x4000);
 	memcpy(&mem[0xC000], b, 0x4000);
-//  memcpy(&mem[0x6000], sram from file);
+//	memcpy(&mem[0x6000], sram from file);
 }
 
 void writeb(unsigned int addr, unsigned char val)
 {
+	if(!addr)
+		printf("%02X written to zero.\n", val);
+	if(addr > 0x7FF && addr < 0x2000)
+		addr &= 0x7FF;
+
 	/* If mapper == 01 */
 	if(addr >= 0x8000 && (val & 0x80))
 		mmc_shift_reset();
