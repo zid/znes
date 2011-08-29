@@ -206,12 +206,22 @@ void cpu_cycle(void)
 		break;
 		case 0x1D:  /* ORA mem16, x */
 			t = get_short();
-			c.a ^= get_byte_at(t + c.x);
+			c.a |= get_byte_at(t + c.x);
 			c.n = !!(c.a & 0x80);
 			c.z = !(c.a);
-			c.cycles += 4;
 			c.pc += 3;
-			/* TODO: Page crossing cycle */
+			c.cycles += 4;
+		break;
+		case 0x1E:  /* ASL mem16, X */
+			t = get_short();
+			t2 = get_byte_at((t + c.x) & 0xFFFF);
+			c.c = !!(t2 & 0x80);
+			t2 = (t2 << 1) & 0xFF;
+			writeb((t + c.x) & 0xFFFF, t2);
+			c.z = !t2;
+			c.n = !!(t2 & 0x80);
+			c.pc += 3;
+			c.cycles += 6;
 		break;
 		case 0x20:  /* JSR */
 			t = c.pc;
@@ -367,6 +377,26 @@ void cpu_cycle(void)
 			c.cycles += 4;
 			c.pc += 3;
 		break;
+		case 0x3D:  /* AND mem16, x */
+			t = get_short();
+			c.a &= get_byte_at(t + c.x);
+			c.n = !!(c.a & 0x80);
+			c.z = !(c.a);
+			c.pc += 3;
+			c.cycles += 4;
+		break;
+		case 0x3E:  /* ROL mem16, X */
+			t = get_short();
+			t2 = get_byte_at((t + c.x) & 0xFFFF);
+			c.z = c.c; /* Temporary, c.z will be recalculated */
+			c.c = !!(t2 & 0x80);
+			t2 = (t2 << 1) | c.z;
+			writeb((t + c.x) & 0xFFFF, t2);
+			c.n = !!(t2 & 0x80);
+			c.z = !t2;
+			c.pc += 3;
+			c.cycles += 6;
+		break;
 		case 0x40:  /* RTI */
 			pull_flags();
 			c.pc = get_short_at(c.sp+1);
@@ -495,6 +525,25 @@ void cpu_cycle(void)
 			c.z = !c.a;
 			c.cycles += 4;
 			c.pc += 3;
+		break;
+		case 0x5D:  /* EOR mem16, x */
+			t = get_short();
+			c.a ^= get_byte_at(t + c.x);
+			c.n = !!(c.a & 0x80);
+			c.z = !(c.a);
+			c.pc += 3;
+			c.cycles += 4;
+		break;
+		case 0x5E:  /* LSR mem16, X */
+			t = get_short();
+			t2 = get_byte_at((t + c.x) & 0xFFFF);
+			c.c = t2 & 1;
+			t2 = t2 >> 1;
+			writeb((t + c.x) & 0xFFFF, t2);
+			c.n = 0;
+			c.z = !t2;
+			c.pc += 3;
+			c.cycles += 6;
 		break;
 		case 0x60:  /* RTS */
 			c.pc = get_short_at(c.sp+1);
@@ -675,6 +724,32 @@ void cpu_cycle(void)
 			c.z = !(c.a);
 			c.pc += 3;
 			c.cycles += 3;
+		break;
+		case 0x7D:  /* ADC mem16, X */
+			t = get_short();
+			s = get_byte_at((t + c.x) & 0xFFFF);
+			t2 = get_byte_at((t + c.x) & 0xFFFF);
+			t = c.a;
+			c.a += t2 + c.c;
+			c.c = !!(c.a & 0x100);
+			c.a &= 0xFF;
+			c.v = !!(~(t ^ t2) & (t ^ c.a) & 0x80);
+			c.n = !!(c.a & 0x80);
+			c.z = !(c.a);
+			c.pc += 3;
+			c.cycles += 4;
+		break;
+		case 0x7E:  /* ROR mem16, X */
+			t = get_short();
+			t2 = get_byte_at((t + c.x) & 0xFFFF);
+			c.n = c.c;  /* Temporary variable */
+			c.c = t2 & 1;
+			t2 = (t2 >> 1) | (c.n<<7);
+			writeb((t + c.x) & 0xFFFF, t2);
+			c.n = !!(t2 & 0x80);
+			c.z = !t2;
+			c.pc += 3;
+			c.cycles += 6;
 		break;
 		case 0x81:  /* STA (mem8, X) */
 			t = get_byte();
@@ -949,13 +1024,29 @@ void cpu_cycle(void)
 			c.cycles += 2;
 			c.pc += 1;
 		break;
-		case 0xBD:  /* LDA mem16, x */
-			t = get_short() + c.x;
-			c.a = get_byte_at(t);
-			c.cycles += 3;
-			if((c.pc & 0xFF00) != (t & 0xFF00))
-				c.cycles++;
+		case 0xBC:  /* LDY mem16, y */
+			t = get_short();
+			c.y = get_byte_at((t + c.x) & 0xFFFF);
+			c.n = !!(c.y & 0x80);
+			c.z = !c.y;
 			c.pc += 3;
+			c.cycles += 4;
+		break;
+		case 0xBD:  /* LDA mem16, X */
+			t = get_short();
+			c.a = get_byte_at((t + c.x) & 0xFFFF);
+			c.z = !c.a;
+			c.n = !!(c.a & 0x80);
+			c.pc += 3;
+			c.cycles += 4;
+		break;
+		case 0xBE:  /* LDX mem16, Y */
+			t = get_short();
+			c.x = get_byte_at((t + c.y) & 0xFFFF);
+			c.z = !c.x;
+			c.n = !!(c.x & 0x80);
+			c.pc += 3;
+			c.cycles += 4;
 		break;
 		case 0xC0:  /* CPY imm8 */
 			t = get_byte();
@@ -1108,6 +1199,26 @@ void cpu_cycle(void)
 			c.n = !!((c.a - t)&0x80);
 			c.pc += 3;
 			c.cycles += 4;
+		break;
+		case 0xDD:  /* CMP mem16, X */
+			t = get_short();
+			t = get_byte_at((t + c.x) & 0xFFFF);
+			c.c = !!((c.a-t) < 0x100);
+			c.z = c.a == t;
+			c.n = !!((c.a - t)&0x80);
+			c.pc += 3;
+			c.cycles += 4;
+		break;
+		case 0xDE:  /* DEC mem16, X */
+			t = get_short();
+			t2 = get_byte_at((t + c.x) & 0xFFFF);
+			t2--;
+			t2 &= 0xFF;
+			writeb((t + c.x) & 0xFFFF, t2);
+			c.z = !t2;
+			c.n = !!(t2 & 0x80);
+			c.pc += 3;
+			c.cycles += 6;
 		break;
 		case 0xE0:  /* CPX imm8 */
 			t = get_byte();
@@ -1286,6 +1397,29 @@ void cpu_cycle(void)
 			c.n = !!(c.a & 0x80);
 			c.pc += 3;
 			c.cycles += 4;
+		break;
+		case 0xFD:  /* SBC mem16, X */
+			t = get_short();
+			s = get_byte_at((t + c.x) & 0xFFFF);
+			t = get_byte_at((t + c.x) & 0xFFFF);
+			t2 = c.a;
+			c.a -= s + !c.c;
+			c.c = !(c.a > 0xFF);
+			c.a &= 0xFF;
+			c.z = !c.a;
+			c.v = !!((t2 ^ t) & (t2 ^ c.a) & 0x80);
+			c.pc += 3;
+			c.cycles += 4;
+		break;
+		case 0xFE:  /* INC mem16, X */
+			t = get_short();
+			t2 = get_byte_at((t + c.x) & 0xFFFF);
+			t2 = (t2+1)&0xFF;
+			writeb((t + c.x) & 0xFFFF, t2);
+			c.n = !!(t2 & 0x80);
+			c.z = !t2;
+			c.pc += 3;
+			c.cycles += 6;
 		break;
 		default:
 			defaul:
