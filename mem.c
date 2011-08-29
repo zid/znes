@@ -34,7 +34,7 @@ static unsigned char readb(unsigned int addr)
 
 unsigned int get_short_at(unsigned int addr)
 {
-	return readb(addr+1) << 8 | readb(addr);
+	return readb((addr+1)&0xFFFF) << 8 | readb(addr);
 }
 
 unsigned char get_byte_at(unsigned int addr)
