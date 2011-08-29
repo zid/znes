@@ -487,6 +487,15 @@ void cpu_cycle(void)
 			c.pc += 2;
 			c.cycles += 6;
 		break;
+		case 0x59:  /* EOR mem16, y */
+			t = get_short();
+			t2 = get_byte_at((t + c.y) & 0xFFFF);
+			c.a ^= t2;
+			c.n = !!(c.a & 0x80);
+			c.z = !c.a;
+			c.cycles += 4;
+			c.pc += 3;
+		break;
 		case 0x60:  /* RTS */
 			c.pc = get_short_at(c.sp+1);
 			c.pc += 1;
@@ -653,6 +662,20 @@ void cpu_cycle(void)
 			c.cycles += 2;
 			c.pc++;
 		break;
+		case 0x79:  /* ADC mem16, Y */
+			t = get_short();
+			s = get_byte_at((t + c.y) & 0xFFFF);
+			t2 = get_byte_at((t + c.y ) & 0xFFFF);
+			t = c.a;
+			c.a += t2 + c.c;
+			c.c = !!(c.a & 0x100);
+			c.a &= 0xFF;
+			c.v = !!(~(t ^ t2) & (t ^ c.a) & 0x80);
+			c.n = !!(c.a & 0x80);
+			c.z = !(c.a);
+			c.pc += 3;
+			c.cycles += 3;
+		break;
 		case 0x81:  /* STA (mem8, X) */
 			t = get_byte();
 			t2 = get_zeropage_short_at(t + c.x);
@@ -752,6 +775,12 @@ void cpu_cycle(void)
 			c.z = !(c.y);
 			c.pc++;
 			c.cycles += 2;
+		break;
+		case 0x99:  /* STA mem16, y */
+			t = get_short();
+			writeb((t + c.y) & 0xFFFF, c.a);
+			c.pc += 3;
+			c.cycles += 5;
 		break;
 		case 0x9A:  /* TXS */
 			c.sp = 0x100 + c.x;
@@ -1071,6 +1100,15 @@ void cpu_cycle(void)
 			c.cycles += 2;
 			c.pc += 1;
 		break;
+		case 0xD9:  /* CMP mem16, Y */
+			t = get_short();
+			t = get_byte_at((t + c.y) & 0xFFFF);
+			c.c = !!((c.a-t) < 0x100);
+			c.z = c.a == t;
+			c.n = !!((c.a - t)&0x80);
+			c.pc += 3;
+			c.cycles += 4;
+		break;
 		case 0xE0:  /* CPX imm8 */
 			t = get_byte();
 			c.c = !!((c.x-t) < 0x100);
@@ -1234,6 +1272,20 @@ void cpu_cycle(void)
 			c.d = 1;
 			c.pc += 1;
 			c.cycles += 2;
+		break;
+		case 0xF9:  /* SBC mem16, Y */
+			t2 = get_short();
+			s = get_byte_at((t2 + c.y) & 0xFFFF);
+			t = get_byte_at((t2 + c.y) & 0xFFFF);
+			t2 = c.a;
+			c.a -= s + !c.c;
+			c.c = !(c.a > 0xFF);
+			c.a &= 0xFF;
+			c.z = !c.a;
+			c.v = !!((t2 ^ t) & (t2 ^ c.a) & 0x80);
+			c.n = !!(c.a & 0x80);
+			c.pc += 3;
+			c.cycles += 4;
 		break;
 		default:
 			defaul:
