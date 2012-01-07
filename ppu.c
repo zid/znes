@@ -11,7 +11,7 @@ extern unsigned char palette[64][3];
 struct PPU {
 	int vblank_nmi;
 	int scanline;
-	unsigned char *mem;
+	unsigned char *mem[4];
 	unsigned char *tiles;
 	unsigned char *nametable;
 	unsigned int increment;
@@ -29,12 +29,11 @@ void ppu_write_reg1(unsigned int val)
 	unsigned int name_tables[] = {0x2000, 0x2400, 0x2800, 0x2C00};
 
 	/* nametable selection, bottom 2 bits are which of the four tables */
-	p.nametable = &p.mem[name_tables[val&0x3]];
+	p.nametable = &p.mem[2][name_tables[val&0x3]&0xFFF];
 
 	p.increment = val & 0x4 ? 32 : 1;
-	p.tiles = val & 0x10 ? &p.mem[0x1000] : &p.mem[0x0000];
+	p.tiles = val & 0x10 ? p.mem[1] : p.mem[0];
 	p.vblank_nmi = !!(val & 0x80);
-	printf("Nametable set to %04X\n", name_tables[val&4]);
 }
 
 void ppu_write_reg2(unsigned int val)
@@ -109,14 +108,15 @@ void ppu_write_data(unsigned int val)
 	if(p.addr >= 0x3F00 && p.addr < 0x4000)
 		addr = ppu_mem_palette_mirror(p.addr);
 
-	p.mem[addr] = val;
+	p.mem[(addr&0xF000)>>12][addr&0xFFF] = val;
 	if(rom_get_mirror() == 1)
 	{
+		int newaddr = (addr & 0x3FF) + 0x2400;
 		if(addr >= 0x2000 && addr < 0x2400)
-			p.mem[(addr & 0x3FF) + 0x2400] = val;
+			p.mem[(newaddr&0xF000)>>12][newaddr&0xFFF] = val;
 		else if(addr >= 0x2400 && addr < 0x2800)
 		{
-			p.mem[(addr & 0x3FF) + 0x2000] = val;
+			p.mem[(newaddr&0xF000)>>12][newaddr&0xFFF] = val;
 		}
 	}
 nowrite:
@@ -125,13 +125,22 @@ nowrite:
 
 void init_ppu(void)
 {
+	unsigned char *chr;
+
 	init_sdl();
 	printf("SDL OK\n");
 	p.scanline = 0;
 	p.addr_count = 0;
 	p.vblank = 0;
-	p.mem = calloc(1, 0x4000);
-	//memcpy(&p.mem[0], rom_get_chr(0), 0x1000);
+
+	chr = rom_get_chr(0);
+	p.mem[0] = chr ? chr : calloc(1, 0x1000);
+
+	chr = rom_get_chr(1);
+	p.mem[1] = chr ? chr : calloc(1, 0x1000);
+
+	p.mem[2] = calloc(1, 0x1000);
+	p.mem[3] = calloc(1, 0x1000);
 }
 
 unsigned int ppu_get_palette_address(unsigned int pnum)
@@ -180,9 +189,9 @@ static void ppu_draw_tile(unsigned char *b, unsigned int ty, unsigned int tx, un
 			addr = ppu_mem_palette_mirror(paddr + pindex[x]);
 //			printf("addr: %04X, ", addr);
 			/* Convert NES colour value to an RGB value using a LUT. */
-			red   = palette[p.mem[addr]][0];
-			green = palette[p.mem[addr]][1];
-			blue  = palette[p.mem[addr]][2];
+			red   = palette[p.mem[(addr&0xF000)>>12][addr&0xFFF]][0];
+			green = palette[p.mem[(addr&0xF000)>>12][addr&0xFFF]][1];
+			blue  = palette[p.mem[(addr&0xF000)>>12][addr&0xFFF]][2];
 //			printf("R: 02%X, G: %02X, B: 02%X\n", red, green, blue);
 
 

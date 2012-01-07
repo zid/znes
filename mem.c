@@ -48,7 +48,6 @@ unsigned char get_byte_at(unsigned int addr)
 
 void mem_set_bank(unsigned int bank, unsigned char *data)
 {
-	printf("Mem_set_bank %d\n", bank);
 	mem[bank+0] = data+0x0000;
 	mem[bank+1] = data+0x1000;
 	mem[bank+2] = data+0x2000;
@@ -91,19 +90,6 @@ void init_mem(void)
 			mem[0xF] = rom_get_bank(-1, 3);
 		break;
 	}
-
-	int fd;
-	int i;
-
-	fd = open("mem2.bin", O_RDWR | O_CREAT | O_TRUNC, S_IRWXU);
-	_setmode(fd, _O_BINARY);
-
-	for(i = 0; i < 0x10; i++)
-	{
-		printf("mem[%02X]: %p\n", i, mem[i]);
-		printf("%d\n", write(fd, mem[i], 0x1000));
-	}
-	close(fd);
 }
 
 void writeb(unsigned int addr, unsigned char val)

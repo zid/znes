@@ -14,12 +14,16 @@ void main_quit(void)
 	running = 0;
 }
 
-int main(void)
+int main(int argc, char *argv[])
 {
 	HANDLE f, map;
 	unsigned char *rombytes;
+	char *filename = "nestest.nes";
 
-	f = CreateFile("metroid.nes", GENERIC_READ, FILE_SHARE_READ, NULL,
+	if(argc == 2)
+		filename = argv[1];
+
+	f = CreateFile(filename, GENERIC_READ, FILE_SHARE_READ, NULL,
 		OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
 	if(f == INVALID_HANDLE_VALUE)
 	    fatal("Unable to open rom file.\n");

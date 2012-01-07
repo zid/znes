@@ -48,19 +48,26 @@ unsigned char *rom_get_bank(signed int bank, unsigned int sub)
 	{
 		bank = (r.prgbanks) + bank;
 	}
-	printf("rom_get_bank(%d, %d): %04X\n", bank, sub, bank*0x4000 + sub * 0x1000);
+	if(bank >= r.prgbanks)
+	{
+		bank = 0;
+	}
+
 	return &r.rombytes[(bank * 0x4000) + (sub * 0x1000)];
 }
 
 void rom_load_bank(unsigned int addr, unsigned int bank, unsigned int size)
 {
-	printf("Loaded bank %02X into %1X000\n", bank, addr);
+//	printf("Loaded bank %02X into %1X000\n", bank, addr);
 
 	mem_set_bank(addr, &r.rombytes[bank*0x4000]);
 }
 
 unsigned char *rom_get_chr(unsigned int bank)
 {
+	if(bank >= r.chrbanks)
+		return NULL;
+
 	return &r.chrbytes[bank * 0x1000];
 }
 
@@ -73,11 +80,10 @@ void init_rom(unsigned char *b)
 
 	r.PRGsize = b[4] * 16384;
 	r.CHRsize = b[5] * 8192;
+	r.prgbanks = b[4];
+	r.chrbanks = b[5];
 
-	r.prgbanks = r.PRGsize / 0x4000;
-	r.chrbanks = r.CHRsize / 0x4000;
-
-	printf("%d prg banks, %d chr bancd ks\n", r.prgbanks, r.chrbanks);
+	printf("%d prg banks, %d chr banks\n", r.prgbanks, r.chrbanks);
 	r.prgbytes = &b[16];
 	r.chrbytes = &b[16 + r.PRGsize];
 	r.flags = b[6];

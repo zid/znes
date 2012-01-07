@@ -42,14 +42,12 @@ static void mmc1_reg0_sendbit(unsigned int b)
 
 static void mmc1_reg1_sendbit(unsigned int b)
 {
-	if(sendbit(b, &reg1_value))
-		printf("Written %02X to mmc register 1\n", reg4_value);
+	sendbit(b, &reg1_value);
 }
 
 static void mmc1_reg2_sendbit(unsigned int b)
 {
-	if(sendbit(b, &reg2_value))
-		printf("Written %02X to mmc register 2\n", reg4_value);
+	sendbit(b, &reg2_value);
 }
 
 static void mmc1_reg3_sendbit(unsigned int b)
