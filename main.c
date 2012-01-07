@@ -19,7 +19,7 @@ int main(void)
 	HANDLE f, map;
 	unsigned char *rombytes;
 
-	f = CreateFile("nestest.nes", GENERIC_READ, FILE_SHARE_READ, NULL,
+	f = CreateFile("metroid.nes", GENERIC_READ, FILE_SHARE_READ, NULL,
 		OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
 	if(f == INVALID_HANDLE_VALUE)
 	    fatal("Unable to open rom file.\n");
@@ -51,6 +51,6 @@ int main(void)
 		 */
 		ppu(cpu_getcycles());
 	}
-
+	printf("Exiting.\n");
 	return 0;
 }

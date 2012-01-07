@@ -6,12 +6,16 @@
 #include "ppu.h"
 #include "rom.h"
 #include "joypad.h"
+#include <io.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <fcntl.h>
 
-static unsigned char *mem;
+static unsigned char *mem[16];
 
 unsigned char *mem_getaddr(unsigned int b)
 {
-	return &mem[b];
+	return &mem[(b & 0xF000)>>24][b&0x0FFF];
 }
 
 static unsigned char readb(unsigned int addr)
@@ -29,7 +33,7 @@ static unsigned char readb(unsigned int addr)
 	if(addr > 0x7FF && addr < 0x2000)
 		addr &= 0x7FF;
 
-	return mem[addr];
+	return mem[(addr & 0xF000)>>12][addr&0x0FFF];
 }
 
 unsigned int get_short_at(unsigned int addr)
@@ -42,40 +46,85 @@ unsigned char get_byte_at(unsigned int addr)
 	return readb(addr);
 }
 
+void mem_set_bank(unsigned int bank, unsigned char *data)
+{
+	printf("Mem_set_bank %d\n", bank);
+	mem[bank+0] = data+0x0000;
+	mem[bank+1] = data+0x1000;
+	mem[bank+2] = data+0x2000;
+	mem[bank+3] = data+0x3000;
+}
+
 void init_mem(void)
 {
-	unsigned char *b = rom_getbytes();
+	unsigned int mapper = rom_get_mapper();
 
-	mem = calloc(0x10000, 1); /* 0 - FFFF */
+	mem[0x0] = calloc(0x1000, 1);
+	mem[0x1] = calloc(0x1000, 1);
+	mem[0x2] = calloc(0x1000, 1);
+	mem[0x3] = calloc(0x1000, 1);
+	mem[0x4] = calloc(0x1000, 1);
+	mem[0x5] = calloc(0x1000, 1);
+	mem[0x6] = calloc(0x1000, 1);
+	mem[0x7] = calloc(0x1000, 1);
 
-	/* MMC1, waiting for mapper.c to be implemented */
-//	memcpy(&mem[0x8000], b+0x38000, 0x4000);
-//	memcpy(&mem[0xC000], b+0x3C000, 0x4000);
+	switch(mapper)
+	{
+		case 0x00:
+			mem[0x8] = rom_get_bank(0, 0);
+			mem[0x9] = rom_get_bank(0, 1);
+			mem[0xA] = rom_get_bank(0, 2);
+			mem[0xB] = rom_get_bank(0, 3);
+			mem[0xC] = rom_get_bank(1, 0);
+			mem[0xD] = rom_get_bank(1, 1);
+			mem[0xE] = rom_get_bank(1, 2);
+			mem[0xF] = rom_get_bank(1, 3);
+		break;
+		case 0x01:
+			mem[0x8] = rom_get_bank(0, 0);
+			mem[0x9] = rom_get_bank(0, 1);
+			mem[0xA] = rom_get_bank(0, 2);
+			mem[0xB] = rom_get_bank(0, 3);
+			mem[0xC] = rom_get_bank(-1, 0);
+			mem[0xD] = rom_get_bank(-1, 1);
+			mem[0xE] = rom_get_bank(-1, 2);
+			mem[0xF] = rom_get_bank(-1, 3);
+		break;
+	}
 
-	/* Mapper0 */
-	memcpy(&mem[0x8000], b, 0x4000);
-	memcpy(&mem[0xC000], b, 0x4000);
-//	memcpy(&mem[0x6000], sram from file);
+	int fd;
+	int i;
+
+	fd = open("mem2.bin", O_RDWR | O_CREAT | O_TRUNC, S_IRWXU);
+	_setmode(fd, _O_BINARY);
+
+	for(i = 0; i < 0x10; i++)
+	{
+		printf("mem[%02X]: %p\n", i, mem[i]);
+		printf("%d\n", write(fd, mem[i], 0x1000));
+	}
+	close(fd);
 }
 
 void writeb(unsigned int addr, unsigned char val)
 {
-	if(!addr)
-		printf("%02X written to zero.\n", val);
+	unsigned int mapper;
+	unsigned int filtered = 0;
+
 	if(addr > 0x7FF && addr < 0x2000)
 		addr &= 0x7FF;
 
-	/* If mapper == 01 */
-	if(addr >= 0x8000 && (val & 0x80))
-		mmc_shift_reset();
-	else if(addr >= 0x8000 && addr < 0xA000)
-		mmc_reg0_sendbit(val);
-	else if(addr >= 0xA000 && addr < 0xC000)
-		mmc_reg1_sendbit(val);
-	else if(addr >= 0xC000 && addr < 0xE000)
-		mmc_reg2_sendbit(val);
-	else if(addr >= 0xE000 && addr <= 0xFFFF)
-		mmc_reg3_sendbit(val);
+	mapper = rom_get_mapper();
+
+	switch(mapper)
+	{
+		case 01: /* MMC1 */
+			filtered = mmc1_write(addr, val);
+		break;
+	}
+
+	if(filtered == 1)
+		return;
 
 	switch(addr)
 	{
@@ -95,7 +144,7 @@ void writeb(unsigned int addr, unsigned char val)
 			joypad_write(val);
 		break;
 		default:
-			mem[addr] = val;
+			mem[(addr & 0xF000)>>12][addr&0x0FFF] = val;
 		break;
 	}
 }

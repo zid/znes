@@ -34,6 +34,7 @@ void ppu_write_reg1(unsigned int val)
 	p.increment = val & 0x4 ? 32 : 1;
 	p.tiles = val & 0x10 ? &p.mem[0x1000] : &p.mem[0x0000];
 	p.vblank_nmi = !!(val & 0x80);
+	printf("Nametable set to %04X\n", name_tables[val&4]);
 }
 
 void ppu_write_reg2(unsigned int val)
@@ -109,6 +110,15 @@ void ppu_write_data(unsigned int val)
 		addr = ppu_mem_palette_mirror(p.addr);
 
 	p.mem[addr] = val;
+	if(rom_get_mirror() == 1)
+	{
+		if(addr >= 0x2000 && addr < 0x2400)
+			p.mem[(addr & 0x3FF) + 0x2400] = val;
+		else if(addr >= 0x2400 && addr < 0x2800)
+		{
+			p.mem[(addr & 0x3FF) + 0x2000] = val;
+		}
+	}
 nowrite:
 	p.addr += p.increment;
 }
@@ -121,7 +131,7 @@ void init_ppu(void)
 	p.addr_count = 0;
 	p.vblank = 0;
 	p.mem = calloc(1, 0x4000);
-	memcpy(&p.mem[0], rom_get_chr(0), 0x1000);
+	//memcpy(&p.mem[0], rom_get_chr(0), 0x1000);
 }
 
 unsigned int ppu_get_palette_address(unsigned int pnum)
@@ -140,7 +150,7 @@ static void ppu_draw_tile(unsigned char *b, unsigned int ty, unsigned int tx, un
 	tiledata = &p.tiles[tile*16];
 
 	paddr = ppu_get_palette_address(pnum);
-
+//	printf("paddr: %04X\n", paddr);
 	for(y = 0; y < 8; y++){
 		/* First 8 bytes of tile data contain the lower order bit of the
 		 * palette index for 64 pixels. The second 8 bytes contain the
@@ -168,14 +178,14 @@ static void ppu_draw_tile(unsigned char *b, unsigned int ty, unsigned int tx, un
 			 * internal mirroring of various palette adresses.
 			 */
 			addr = ppu_mem_palette_mirror(paddr + pindex[x]);
-
+//			printf("addr: %04X, ", addr);
 			/* Convert NES colour value to an RGB value using a LUT. */
-//			red   = palette[(p.mem[addr]*3)+0];
-	//		green = palette[(p.mem[addr]*3)+1];
-		//	blue  = palette[(p.mem[addr]*3)+2];
 			red   = palette[p.mem[addr]][0];
 			green = palette[p.mem[addr]][1];
 			blue  = palette[p.mem[addr]][2];
+//			printf("R: 02%X, G: %02X, B: 02%X\n", red, green, blue);
+
+
 			/* Calc offset into the output texture to write our RBG triplet */
 			px = (tx * 8) + x;
 			out = b + (px + py) * 3; /* 3 bytes per pixel */
@@ -233,7 +243,10 @@ static void ppu_draw_frame(unsigned char *b)
 			unsigned int tile, palette;
 
 			tile = p.nametable[y*32+x];
+
 			palette = palette_for_tile(x, y, &p.nametable[0x3C0]);
+//			printf("x: %02d, y: %02d, tileno: %02X, addr: %04X, palette: %02X\n", x, y, tile, 0x2000 + &p.nametable[y*32+x] - &p.nametable[0], palette);
+
 			ppu_draw_tile(b, y, x, tile, palette);
 		}
 	}

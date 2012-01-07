@@ -68,7 +68,7 @@ void cpu_cycle(void)
 	unsigned int t, t2;
 	signed char s;
 //	printf("PC: %04X, SP: %04X\n", c.pc, c.sp);
-	printf("PC:%04X A:%02X X:%02X Y:%02X S:%02X P:%c%cub%c%c%c ", c.pc, c.a, c.x, c.y, c.sp&0xFF,
+/*	printf("PC:%04X A:%02X X:%02X Y:%02X S:%02X P:%c%cub%c%c%c ", c.pc, c.a, c.x, c.y, c.sp&0xFF,
 		c.n ? 'N' : 'n',
 		c.v ? 'V' : 'v',
 		c.i ? 'I' : 'i',
@@ -76,7 +76,7 @@ void cpu_cycle(void)
 		c.c ? 'C' : 'c'
 	);
 	printf("S: %02X %02X %02X\n", get_byte_at(c.sp+1), get_byte_at(c.sp+2), get_byte_at(c.sp+3));
-
+*/
 
 	switch(opcode)
 	{
@@ -516,6 +516,11 @@ void cpu_cycle(void)
 			c.z = !t2;
 			c.pc += 2;
 			c.cycles += 6;
+		break;
+		case 0x58:  /* CLI */
+			c.i = 0;
+			c.cycles += 2;
+			c.pc++;
 		break;
 		case 0x59:  /* EOR mem16, y */
 			t = get_short();
@@ -1186,7 +1191,7 @@ void cpu_cycle(void)
 			c.pc += 2;
 			c.cycles += 6;
 		break;
-		case 0xD8:
+		case 0xD8:  /* CLD */
 			c.d = 0;
 			c.cycles += 2;
 			c.pc += 1;
