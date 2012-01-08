@@ -48,19 +48,12 @@ unsigned char *rom_get_bank(signed int bank, unsigned int sub)
 	{
 		bank = (r.prgbanks) + bank;
 	}
-	if(bank >= r.prgbanks)
+	else if((unsigned)bank >= r.prgbanks)
 	{
 		bank = 0;
 	}
 
 	return &r.rombytes[(bank * 0x4000) + (sub * 0x1000)];
-}
-
-void rom_load_bank(unsigned int addr, unsigned int bank, unsigned int size)
-{
-//	printf("Loaded bank %02X into %1X000\n", bank, addr);
-
-	mem_set_bank(addr, &r.rombytes[bank*0x4000]);
 }
 
 unsigned char *rom_get_chr(unsigned int bank)

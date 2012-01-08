@@ -4,6 +4,7 @@
 #include "mem.h"
 #include "cpu.h"
 #include "ppu.h"
+#include "mapper.h"
 
 #define fatal(x) {printf("Fatal error: %s", x); exit(0);}
 
@@ -18,7 +19,7 @@ int main(int argc, char *argv[])
 {
 	HANDLE f, map;
 	unsigned char *rombytes;
-	char *filename = "nestest.nes";
+	char *filename = "ff1.nes";
 
 	if(argc == 2)
 		filename = argv[1];
@@ -38,12 +39,15 @@ int main(int argc, char *argv[])
 
 	init_rom(rombytes);
 	printf("ROM OK\n");
+	init_ppu();
+	printf("PPU OK\n");
+	init_mapper();
+	printf("Mapper OK\n");
 	init_mem();
 	printf("Mem OK\n");
 	init_cpu();
 	printf("CPU OK\n");
-	init_ppu();
-	printf("PPU OK\n");
+
 
 	while(running){
 		/* Emulates one opcode of the cpu per call */

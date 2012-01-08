@@ -1,10 +1,10 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include "ppu.h"
-#include "mem.h"
 
-#define get_byte() get_byte_at(c.pc+1)
-#define get_short() get_short_at(c.pc+1)
+#define get_byte() readb(c.pc+1)
+#define get_byte_at(x) readb(x)
+#define get_short() (readb(c.pc+1) | (readb(c.pc+2)<<8))
+#define get_short_at(x) (readb(x) | ( readb( ((x)+1))<<8 ) )
 #define get_zeropage_short_at(x) (get_byte_at(((x)+1)&0xFF) << 8 | get_byte_at((x)&0xFF))
 
 struct CPU {
@@ -15,6 +15,20 @@ struct CPU {
 };
 
 static struct CPU c;
+
+static void (*writeb)(unsigned int, unsigned char);
+static unsigned char (*readb)(unsigned int);
+
+void cpu_set_writeb(void (*wbfp)(unsigned int, unsigned char))
+{
+	writeb = wbfp;
+}
+
+void cpu_set_readb(unsigned char (*rbfp)(unsigned int))
+{
+	readb = rbfp;
+}
+
 
 void init_cpu(void)
 {
@@ -29,6 +43,11 @@ void init_cpu(void)
 	c.c = 0;
 	c.i = 0;
 	c.d = 0;
+}
+
+unsigned int cpu_getcycles(void)
+{
+	return c.cycles;
 }
 
 static void push_flags(void)
@@ -1427,7 +1446,7 @@ void cpu_cycle(void)
 			c.cycles += 6;
 		break;
 		default:
-			defaul:
+//			defaul:
 			printf("A: %02X, X: %02X, Y: %02X\n", c.a, c.x, c.y);
 			printf("Z: %1u, N: %1u, V: %1u, C: %1u\n", c.z, c.n, c.v, c.c);
 			printf("I: %1u, D: %1u, SP: %04X\n", c.i, c.d, c.sp);
@@ -1438,9 +1457,4 @@ void cpu_cycle(void)
 			exit(0);
 		break;
 	}
-}
-
-unsigned int cpu_getcycles(void)
-{
-	return c.cycles;
 }

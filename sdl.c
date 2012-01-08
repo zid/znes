@@ -2,6 +2,8 @@
 #include "main.h"
 #include "sdl.h"
 
+void ppu_dump(void);
+
 static SDL_Surface *screen, *backbuf;
 
 void init_sdl(void)
@@ -35,7 +37,6 @@ unsigned int sdl_get_buttons(void)
 		buttons |= 0x40;
 	if(keys[SDLK_RIGHT])
 		buttons |= 0x80;
-
 	return buttons;
 }
 
