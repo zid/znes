@@ -24,6 +24,7 @@ struct PPU {
 	unsigned int addr_count;
 	unsigned int bg;
 	unsigned int vblank;    /* NMI ACK bit, 0x2000 bit 7 */
+	unsigned char buffer;
 };
 
 static struct PPU p;
@@ -43,9 +44,28 @@ void ppu_writeb_unsafe(unsigned int addr, unsigned char val)
 	p.mem[(addr & 0xFC00) >> 10][addr & 0x3FF] = val;
 }
 
-unsigned char ppu_readb_unsafe(unsigned int addr)
+/* Actually reads from memory, called inside the ppu, and by the mapper */
+unsigned char ppu_readb_raw(unsigned int addr)
 {
 	return p.mem[(addr & 0xFC00) >> 10][addr & 0x3FF];
+}
+
+/* Designed to be called from anywhere but inside the ppu */
+unsigned char ppu_readb_buffered(void)
+{
+	unsigned char temp;
+
+	if(p.addr < 0x3F00)
+	{
+		temp = p.buffer;
+		p.buffer = ppu_readb(p.addr);
+		p.addr += p.increment;
+
+		return temp;
+	}
+
+	p.addr += p.increment;
+	return ppu_readb(p.addr);
 }
 
 void ppu_set_bank(unsigned int bank, unsigned int addr)
@@ -147,29 +167,29 @@ static void ppu_draw_tile(unsigned char *b, unsigned int ty, unsigned int tx, un
 		 * the byte number y and y+8's xth bit. For example, y=3, x=2
 		 * you would take byte 3 and 11, and take bit 2 of each byte.
 		 */
-		pindexlo[7] = (!!(ppu_readb(tiledata+y+0) & 0x01));
-		pindexhi[7] = (!!(ppu_readb(tiledata+y+8) & 0x01))<<1;
+		pindexlo[7] = (!!(ppu_readb_raw(tiledata+y+0) & 0x01));
+		pindexhi[7] = (!!(ppu_readb_raw(tiledata+y+8) & 0x01))<<1;
 
-		pindexlo[6] = (!!(ppu_readb(tiledata+y+0) & 0x02));
-		pindexhi[6] = (!!(ppu_readb(tiledata+y+8) & 0x02))<<1;
+		pindexlo[6] = (!!(ppu_readb_raw(tiledata+y+0) & 0x02));
+		pindexhi[6] = (!!(ppu_readb_raw(tiledata+y+8) & 0x02))<<1;
 
-		pindexlo[5] = (!!(ppu_readb(tiledata+y+0) & 0x04));
-		pindexhi[5] = (!!(ppu_readb(tiledata+y+8) & 0x04))<<1;
+		pindexlo[5] = (!!(ppu_readb_raw(tiledata+y+0) & 0x04));
+		pindexhi[5] = (!!(ppu_readb_raw(tiledata+y+8) & 0x04))<<1;
 
-		pindexlo[4] = (!!(ppu_readb(tiledata+y+0) & 0x08));
-		pindexhi[4] = (!!(ppu_readb(tiledata+y+8) & 0x08))<<1;
+		pindexlo[4] = (!!(ppu_readb_raw(tiledata+y+0) & 0x08));
+		pindexhi[4] = (!!(ppu_readb_raw(tiledata+y+8) & 0x08))<<1;
 
-		pindexlo[3] = (!!(ppu_readb(tiledata+y+0) & 0x10));
-		pindexhi[3] = (!!(ppu_readb(tiledata+y+8) & 0x10))<<1;
+		pindexlo[3] = (!!(ppu_readb_raw(tiledata+y+0) & 0x10));
+		pindexhi[3] = (!!(ppu_readb_raw(tiledata+y+8) & 0x10))<<1;
 
-		pindexlo[2] = (!!(ppu_readb(tiledata+y+0) & 0x20));
-		pindexhi[2] = (!!(ppu_readb(tiledata+y+8) & 0x20))<<1;
+		pindexlo[2] = (!!(ppu_readb_raw(tiledata+y+0) & 0x20));
+		pindexhi[2] = (!!(ppu_readb_raw(tiledata+y+8) & 0x20))<<1;
 
-		pindexlo[1] = (!!(ppu_readb(tiledata+y+0) & 0x40));
-		pindexhi[1] = (!!(ppu_readb(tiledata+y+8) & 0x40))<<1;
+		pindexlo[1] = (!!(ppu_readb_raw(tiledata+y+0) & 0x40));
+		pindexhi[1] = (!!(ppu_readb_raw(tiledata+y+8) & 0x40))<<1;
 
-		pindexlo[0] = (!!(ppu_readb(tiledata+y+0) & 0x80));
-		pindexhi[0] = (!!(ppu_readb(tiledata+y+8) & 0x80))<<1;
+		pindexlo[0] = (!!(ppu_readb_raw(tiledata+y+0) & 0x80));
+		pindexhi[0] = (!!(ppu_readb_raw(tiledata+y+8) & 0x80))<<1;
 
 		/* Calculate what pixel on screen this represents */
 		py = 256 * ((ty * 8) + y);
@@ -181,7 +201,7 @@ static void ppu_draw_tile(unsigned char *b, unsigned int ty, unsigned int tx, un
 			 * into a palette entry.
 			 */
 			paddr = ppu_get_palette_entry(pnum, pindexhi[x] | pindexlo[x]);
-			pbyte = ppu_readb(paddr);
+			pbyte = ppu_readb_raw(paddr);
 
 			/* Convert NES colour value to an RGB value using a LUT. */
 			red   = palette[pbyte][0];
@@ -209,7 +229,7 @@ static unsigned int palette_for_tile(unsigned int x, unsigned int y, unsigned in
 	atx = x/4;
 
 	/* Which byte in the attribute table our x and y use */
-	atbyte = ppu_readb(attraddr + (aty * 8) + atx);
+	atbyte = ppu_readb_raw(attraddr + (aty * 8) + atx);
 
 	/* Now we find out which quarter of the attribute byte our x and y use
 	 * by taking bit1 of it.
@@ -235,7 +255,7 @@ static void ppu_draw_frame(unsigned char *b)
 		for(x = 0; x < 32; x++){
 			unsigned int tile, palette;
 
-			tile = ppu_readb(p.nametable + (y*32+x));
+			tile = ppu_readb_raw(p.nametable + (y*32+x));
 
 			palette = palette_for_tile(x, y, p.nametable + 0x3C0);
 //			printf("x: %02d, y: %02d, tileno: %02X, addr: %04X, palette: %02X\n", x, y, tile, 0x2000 + &p.nametable[y*32+x] - &p.nametable[0], palette);

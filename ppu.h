@@ -8,6 +8,7 @@ void ppu_addr_reset_count(void);
 unsigned int ppu_read_reg2(void);
 void ppu_set_bank(unsigned int, unsigned int);
 void ppu_writeb_unsafe(unsigned int, unsigned char);
-unsigned char ppu_readb_unsafe(unsigned int);
+unsigned char ppu_readb_buffered(void);
+unsigned char ppu_readb_raw(unsigned int addr);
 void ppu_set_writeb(void (*)(unsigned int, unsigned char));
 void ppu_set_readb(unsigned char (*)(unsigned int));

@@ -26,6 +26,9 @@ unsigned char readb_unsafe(unsigned int addr)
 		case 0x2002:
 			return ppu_read_reg2();
 		break;
+		case 0x2007:
+			return ppu_readb_buffered();
+		break;
 		case 0x4016:
 			return joypad_read();
 		break;

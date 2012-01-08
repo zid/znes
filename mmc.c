@@ -127,7 +127,38 @@ static void mmc1_ppu_writeb(unsigned int addr, unsigned char val)
 
 static unsigned char mmc1_ppu_readb(unsigned int addr)
 {
-	return ppu_readb_unsafe(addr);
+	/* 3000 - 3EFF is mirrored to 2000 - 2EFF */
+	if(addr >= 0x3000 && addr <= 0x3EFF)
+	{
+		addr = 0x2000 + (addr & 0xEFF);
+		goto read;
+	}
+
+	/* 3F20 - 3FFF is mirrored to 3F00 - 3F1F */
+	if(addr >= 0x3F20)
+	{
+		/* Not done yet, this area can be double mirrored */
+		addr &= 0x3F1F;
+	}
+
+	switch(addr)
+	{
+		case 0x3F10:
+			addr = 0x3F00;
+		break;
+		case 0x3F14:
+			addr = 0x3F04;
+		break;
+		case 0x3F18:
+			addr = 0x3F08;
+		break;
+		case 0x3F1C:
+			addr = 0x3F0C;
+		break;
+	}
+
+	read:
+	return ppu_readb_raw(addr);
 }
 
 void init_mmc1(void)
@@ -166,9 +197,9 @@ void init_mmc1(void)
 	ppu_set_bank(0x6, 0x1800);
 	ppu_set_bank(0x7, 0x1C00);
 	ppu_set_bank(0x8, 0x2000);
-	ppu_set_bank(0x9, 0x2000);
-	ppu_set_bank(0xA, 0x2800);
-	ppu_set_bank(0xB, 0x2800);
+	ppu_set_bank(0x9, 0x2400);
+	ppu_set_bank(0xA, 0x2000);
+	ppu_set_bank(0xB, 0x2400);
 	ppu_set_bank(0xC, 0x3000);
 	ppu_set_bank(0xD, 0x3400);
 	ppu_set_bank(0xE, 0x3800);
