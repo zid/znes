@@ -29,17 +29,7 @@ struct PPU {
 
 static struct PPU p;
 
-void ppu_set_writeb(void (*writebfp)(unsigned int, unsigned char))
-{
-	ppu_writeb = writebfp;
-}
-
-void ppu_set_readb(unsigned char (*readbfp)(unsigned int))
-{
-	ppu_readb = readbfp;
-}
-
-void ppu_writeb_unsafe(unsigned int addr, unsigned char val)
+void ppu_writeb_raw(unsigned int addr, unsigned char val)
 {
 	p.mem[(addr & 0xFC00) >> 10][addr & 0x3FF] = val;
 }
@@ -48,6 +38,22 @@ void ppu_writeb_unsafe(unsigned int addr, unsigned char val)
 unsigned char ppu_readb_raw(unsigned int addr)
 {
 	return p.mem[(addr & 0xFC00) >> 10][addr & 0x3FF];
+}
+
+void ppu_set_writeb(void (*writebfp)(unsigned int, unsigned char))
+{
+	if(writebfp)
+		ppu_writeb = writebfp;
+	else
+		ppu_writeb = ppu_writeb_raw;
+}
+
+void ppu_set_readb(unsigned char (*readbfp)(unsigned int))
+{
+	if(readbfp)
+		ppu_readb = readbfp;
+	else
+		ppu_readb = ppu_readb_raw;
 }
 
 /* Designed to be called from anywhere but inside the ppu */
@@ -66,6 +72,11 @@ unsigned char ppu_readb_buffered(void)
 
 	p.addr += p.increment;
 	return ppu_readb(p.addr);
+}
+
+void ppu_set_bank_rom(unsigned int bank, unsigned char *data)
+{
+	p.mem[bank] = data;
 }
 
 void ppu_set_bank(unsigned int bank, unsigned int addr)

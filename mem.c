@@ -19,7 +19,7 @@ void init_mem(void)
 
 }
 
-unsigned char readb_unsafe(unsigned int addr)
+unsigned char cpu_readb_unsafe(unsigned int addr)
 {
 	switch(addr)
 	{
@@ -37,7 +37,7 @@ unsigned char readb_unsafe(unsigned int addr)
 	return mem[(addr & 0xF000)>>12][addr&0x0FFF];
 }
 
-void writeb_unsafe(unsigned int addr, unsigned char val)
+void cpu_writeb_unsafe(unsigned int addr, unsigned char val)
 {
 	switch(addr)
 	{

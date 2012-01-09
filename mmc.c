@@ -82,12 +82,12 @@ static void mmc1_cpu_writeb(unsigned int addr, unsigned char val)
 	else if(addr >= 0xE000 && addr <= 0xFFFF)
 		mmc1_reg3_sendbit(val);
 	else
-		writeb_unsafe(addr, val);
+		cpu_writeb_unsafe(addr, val);
 }
 
 static unsigned char mmc1_cpu_readb(unsigned int addr)
 {
-	return readb_unsafe(addr);
+	return cpu_readb_unsafe(addr);
 }
 
 static void mmc1_ppu_writeb(unsigned int addr, unsigned char val)
@@ -122,7 +122,7 @@ static void mmc1_ppu_writeb(unsigned int addr, unsigned char val)
 	}
 
 	write:
-	ppu_writeb_unsafe(addr, val);
+	ppu_writeb_raw(addr, val);
 }
 
 static unsigned char mmc1_ppu_readb(unsigned int addr)

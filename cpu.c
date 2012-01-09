@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include "mem.h"
 
 #define get_byte() readb(c.pc+1)
 #define get_byte_at(x) readb(x)
@@ -21,12 +22,18 @@ static unsigned char (*readb)(unsigned int);
 
 void cpu_set_writeb(void (*wbfp)(unsigned int, unsigned char))
 {
-	writeb = wbfp;
+	if(wbfp)
+		writeb = wbfp;
+	else
+		writeb = cpu_writeb_unsafe;
 }
 
 void cpu_set_readb(unsigned char (*rbfp)(unsigned int))
 {
-	readb = rbfp;
+	if(rbfp)
+		readb = rbfp;
+	else
+		readb = cpu_readb_unsafe;
 }
 
 

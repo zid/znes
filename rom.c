@@ -58,10 +58,7 @@ unsigned char *rom_get_bank(signed int bank, unsigned int sub)
 
 unsigned char *rom_get_chr(unsigned int bank)
 {
-	if(bank >= r.chrbanks)
-		return NULL;
-
-	return &r.chrbytes[bank * 0x1000];
+	return &r.chrbytes[bank * 0x400];
 }
 
 void init_rom(unsigned char *b)
